@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="$lang$">
+<head>
+<meta charset="utf-8">
+<title>$if(title)$$title$$else$document$endif$</title>
+<style>
+$styles.css()$
+</style>
+</head>
+<body>
+$if(title)$<h1 class="title">$title$</h1>$endif$
+$if(author)$<p class="author">$author$</p>$endif$
+$if(toc)$<nav class="toc">$table-of-contents$</nav>$endif$
+$body$
+</body>
+</html>

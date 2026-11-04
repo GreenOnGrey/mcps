@@ -1,0 +1,55 @@
+# Проверки на каждый PR: shellcheck, actionlint, чарт, образы.
+name: checks
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions: { contents: read }
+
+env:
+  SHELLCHECK_VERSION: v0.11.0
+  KUBECONFORM_VERSION: v0.7.0
+  YQ_VERSION: v4.47.2
+
+jobs:
+  shellcheck:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: shellcheck
+        run: |
+          curl -fsSL "https://github.com/koalaman/shellcheck/releases/download/$SHELLCHECK_VERSION/shellcheck-$SHELLCHECK_VERSION.linux.x86_64.tar.xz" | tar -xJ
+          "./shellcheck-$SHELLCHECK_VERSION/shellcheck" -x tests/manifests.sh images/publish.sh images/*/test.sh
+
+  actionlint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: actionlint
+        run: |
+          bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/914e7df21a07ef503a81201c76d2b11c789d3fca/scripts/download-actionlint.bash) 1.7.12
+          ./actionlint -color
+
+  manifests:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Инструменты
+        run: |
+          set -a; source config/versions.env; set +a
+          curl -fsSL "https://get.helm.sh/helm-$HELM_VERSION-linux-amd64.tar.gz" -o /tmp/helm.tgz
+          echo "$HELM_SHA256  /tmp/helm.tgz" | sha256sum -c -
+          tar -xzf /tmp/helm.tgz -C /tmp && sudo install /tmp/linux-amd64/helm /usr/local/bin/helm
+          curl -fsSL "https://github.com/yannh/kubeconform/releases/download/$KUBECONFORM_VERSION/kubeconform-linux-amd64.tar.gz" | tar -xz -C /tmp kubeconform
+          sudo install /tmp/kubeconform /usr/local/bin/kubeconform
+          sudo curl -fsSL "https://github.com/mikefarah/yq/releases/download/$YQ_VERSION/yq_linux_amd64" -o /usr/local/bin/yq
+          sudo chmod +x /usr/local/bin/yq
+      - name: Чарт
+        run: bash tests/manifests.sh
+
+  images:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: build, test, scan
+        run: images/publish.sh --test-only

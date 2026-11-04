@@ -1,0 +1,103 @@
+{
+  "name": "docgen",
+  "valuesKey": "docgen",
+  "service": "docgen:8000",
+  "deployments": [
+    "docgen",
+    "doc-convert"
+  ],
+  "secrets": [
+    "mcp-docgen-key",
+    "mcp-doc-convert-auth"
+  ],
+  "keySecret": "mcp-docgen-key",
+  "wantTools": [
+    "render_document",
+    "render_spreadsheet",
+    "fill_template",
+    "edit_document",
+    "convert",
+    "pdf_tools"
+  ],
+  "oauth": null,
+  "catalogHint": {
+    "allowedTools": [
+      "render_document",
+      "render_spreadsheet",
+      "fill_template",
+      "edit_document",
+      "convert",
+      "pdf_tools"
+    ],
+    "fileArgs": [
+      {
+        "tool": "render_document",
+        "arg": "source"
+      },
+      {
+        "tool": "render_document",
+        "arg": "reference"
+      },
+      {
+        "tool": "render_document",
+        "arg": "images"
+      },
+      {
+        "tool": "render_spreadsheet",
+        "arg": "template"
+      },
+      {
+        "tool": "fill_template",
+        "arg": "template"
+      },
+      {
+        "tool": "edit_document",
+        "arg": "source"
+      },
+      {
+        "tool": "convert",
+        "arg": "source"
+      },
+      {
+        "tool": "pdf_tools",
+        "arg": "sources"
+      }
+    ],
+    "fileMaxBytes": 26214400,
+    "resultArgs": [
+      {
+        "tool": "render_document",
+        "arg": "dest"
+      },
+      {
+        "tool": "render_spreadsheet",
+        "arg": "dest"
+      },
+      {
+        "tool": "fill_template",
+        "arg": "dest"
+      },
+      {
+        "tool": "edit_document",
+        "arg": "dest"
+      },
+      {
+        "tool": "convert",
+        "arg": "dest"
+      },
+      {
+        "tool": "pdf_tools",
+        "arg": "dest"
+      }
+    ],
+    "resultMaxBytes": 52428800,
+    "spaceOnlyTools": [
+      "render_document",
+      "render_spreadsheet",
+      "fill_template",
+      "edit_document",
+      "convert",
+      "pdf_tools"
+    ]
+  }
+}

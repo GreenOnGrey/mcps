@@ -1,0 +1,19 @@
+/* Тема default документов из Markdown в PDF (FTR.NAB.CHAT-0003 R4): шрифты PT,
+   те же, что в профиле песочницы documents. */
+html { font-family: "PT Serif", "DejaVu Serif", serif; font-size: 11pt; line-height: 1.45; color: #1b1b1b; }
+h1, h2, h3, h4, .title { font-family: "PT Sans", "DejaVu Sans", sans-serif; line-height: 1.2; page-break-after: avoid; }
+h1, .title { font-size: 20pt; margin: 0 0 12pt; }
+h2 { font-size: 15pt; margin: 18pt 0 8pt; }
+h3 { font-size: 12.5pt; margin: 14pt 0 6pt; }
+.author { color: #555; margin-top: -6pt; }
+p, li { orphans: 2; widows: 2; }
+table { border-collapse: collapse; width: 100%; margin: 8pt 0; font-size: 10pt; page-break-inside: auto; }
+th, td { border: 0.6pt solid #999; padding: 3pt 5pt; vertical-align: top; }
+th { background: #f0eff5; font-family: "PT Sans", sans-serif; }
+tr { page-break-inside: avoid; }
+img { max-width: 100%; }
+pre, code { font-family: "DejaVu Sans Mono", monospace; font-size: 9pt; }
+pre { background: #f6f5fa; padding: 6pt; white-space: pre-wrap; }
+blockquote { border-left: 2pt solid #ccc; margin-left: 0; padding-left: 10pt; color: #444; }
+.footnotes { font-size: 9pt; border-top: 0.6pt solid #ccc; margin-top: 18pt; }
+.toc ul { list-style: none; padding-left: 12pt; }

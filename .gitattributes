@@ -1,0 +1,5 @@
+# Всё текстовое — с окончаниями строк LF независимо от core.autocrlf: скрипты
+# выполняются на Linux, а `git archive` выкатки должен отдавать LF.
+* text=auto eol=lf
+*.png binary
+*.jpg binary

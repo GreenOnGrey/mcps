@@ -1,0 +1,34 @@
+{
+  "name": "docling",
+  "valuesKey": "docling",
+  "service": "docling-mcp:8080",
+  "deployments": [
+    "docling-mcp",
+    "docling-serve"
+  ],
+  "secrets": [
+    "mcp-docling-serve-key",
+    "mcp-docling-key"
+  ],
+  "keySecret": "mcp-docling-key",
+  "wantTools": [
+    "convert_document_into_docling_document",
+    "export_docling_document_to_markdown"
+  ],
+  "oauth": null,
+  "catalogHint": {
+    "allowedTools": [
+      "convert_document_into_docling_document",
+      "export_docling_document_to_markdown",
+      "get_overview_of_document_anchors",
+      "search_for_text_in_document_anchors",
+      "get_text_of_document_item_at_anchor"
+    ],
+    "fileArgs": [
+      {
+        "tool": "convert_document_into_docling_document",
+        "arg": "source"
+      }
+    ]
+  }
+}

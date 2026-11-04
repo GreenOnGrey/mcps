@@ -1,0 +1,20 @@
+{
+  "name": "yandex-mail",
+  "valuesKey": "yandexMail",
+  "service": "yandex-mail:8000",
+  "deployments": [
+    "yandex-mail"
+  ],
+  "secrets": [],
+  "keySecret": null,
+  "wantTools": [],
+  "oauth": {
+    "authorizeUrl": "https://oauth.yandex.ru/authorize",
+    "tokenUrl": "https://oauth.yandex.ru/token",
+    "scopes": [
+      "mail:imap_ro",
+      "login:email"
+    ]
+  },
+  "catalogHint": null
+}
