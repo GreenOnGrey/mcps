@@ -3,7 +3,7 @@
 The optional MCP servers of the stand (`FTR.NAB.CMN-0006`, `FTR.NAB.CHAT-0003`, `FTR.INFRA.INST-0001`): their images and one Helm chart. `installer` installs the chart by `MCP_CHART_VERSION` and handles keys and checks. Specifications live in `hammurapi-specs`.
 
 - Do not commit, tag or push unless asked.
-- Docs are in English. Comments and messages moved from `installer` are in Russian until they are translated.
+- English for code, comments, docs, CI, scripts, logs, test names, and the messages and tool descriptions that services return. Russian stays in test data that exercises Russian text and the specifications in `hammurapi-specs`. Other Russian here is a leftover to translate.
 
 ## Contents
 
