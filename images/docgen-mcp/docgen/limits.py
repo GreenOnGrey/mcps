@@ -1,4 +1,4 @@
-"""Лимиты и адреса сервиса (FTR.NAB.CHAT-0003 R12, tech §2.1)."""
+"""Limits and addresses of the service (FTR.NAB.CHAT-0003 R12, tech §2.1)."""
 
 import json
 import os
@@ -34,7 +34,7 @@ PANDOC = os.environ.get("PANDOC", "pandoc")
 
 
 def check_inline(name: str, value) -> None:
-    """Markdown, JSON таблицы и данные шаблона в аргументах — не больше MAX_INLINE (R12)."""
+    """Markdown, the JSON of a table and template data in arguments: at most MAX_INLINE (R12)."""
     size = len(value.encode()) if isinstance(value, str) else len(json.dumps(value, ensure_ascii=False, default=str).encode())
     if size > MAX_INLINE:
         raise DocError(f"{name} is larger than {MAX_INLINE // MB} MB: put the data into a file of the space.")

@@ -1,10 +1,10 @@
-"""legacy — DOC/XLS/PPT/ODF/RTF → DOCX/XLSX/PPTX на LibreOffice (FTR.NAB.CHAT-0003
-tech §3.3). Gotenberg выдаёт только PDF, поэтому эти преобразования делает
-этот сайдкар на том же образе: на каждый запрос — новый профиль LibreOffice
-(макросы выключены, внешние ссылки не обновляются) и временный каталог,
-одна конвертация за раз, очередь — до пяти запросов.
+"""legacy: DOC/XLS/PPT/ODF/RTF → DOCX/XLSX/PPTX on LibreOffice (FTR.NAB.CHAT-0003
+tech §3.3). Gotenberg gives only PDF, so this sidecar on the same image does these
+conversions: each request gets a new profile of LibreOffice
+(macros off, external links not updated) and a temporary directory,
+with one conversion at a time and a queue of up to five requests.
 
-POST /convert?to=docx|xlsx|pptx&name=<имя файла>, тело — файл; ответ — файл.
+POST /convert?to=docx|xlsx|pptx&name=<file name>, the body is a file, and the answer is a file.
 """
 
 from __future__ import annotations
@@ -29,11 +29,11 @@ SOURCES = {"doc", "xls", "ppt", "odt", "ods", "odp", "rtf"}
 TARGETS = {"docx": "docx:MS Word 2007 XML", "xlsx": "xlsx:Calc MS Excel 2007 XML", "pptx": "pptx:Impress MS PowerPoint 2007 XML"}
 
 slot = threading.Semaphore(1)
-queue = threading.Semaphore(6)  # одна в работе и пять в очереди
+queue = threading.Semaphore(6)  # one at work and five in the queue
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
-    def log_message(self, fmt, *args):  # без имён файлов и содержимого
+    def log_message(self, fmt, *args):  # without file names and contents
         pass
 
     def _send(self, status: int, body: bytes = b"", ctype: str = "text/plain") -> None:

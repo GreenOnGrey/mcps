@@ -1,7 +1,7 @@
 apiVersion: v2
 name: mcp-servers
-description: "MCP-серверы стенда (FTR.NAB.CMN-0006): разбор документов, веб-поиск, Яндекс Почта только для чтения"
+description: "MCP servers of the stand (FTR.NAB.CMN-0006): document parsing, web search, read-only Yandex Mail"
 type: application
-# Версию задаёт release.yml из тега vX.Y.Z этого репозитория.
+# release.yml sets the version from a tag vX.Y.Z of this repository.
 version: 0.0.0
 appVersion: "0.0.0"

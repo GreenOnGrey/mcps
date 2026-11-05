@@ -1,4 +1,4 @@
-"""Тесты HTTP-стороны imap-mcp (FTR.NAB.CMN-0006 YML-01): python -m unittest."""
+"""Tests of the HTTP side of imap-mcp (FTR.NAB.CMN-0006 YML-01): python -m unittest."""
 
 import json
 import unittest
@@ -67,7 +67,7 @@ class Server(unittest.TestCase):
         self.assertEqual(self.seen, [("me@yandex.ru", "good")])
 
     def test_imap_refusal_is_401(self):
-        """YML-01: токен принят сервисом адреса, но отвергнут IMAP — тоже 401."""
+        """YML-01: the address service took the token, but IMAP refused it: 401 too."""
         def refused(address, token, factory=None):
             raise core.AuthError("AUTHENTICATE failed")
 
@@ -85,7 +85,7 @@ class Server(unittest.TestCase):
                                         "params": {"name": "list_folders", "arguments": {}}}, headers=auth).json()["result"]
 
     def test_dropped_connection_is_retried_once(self):
-        """Обрыв соединения сервером: один повтор на новом соединении."""
+        """The server drops the connection: one repeat on a new connection."""
         calls = []
 
         def flaky(conn):
@@ -101,7 +101,7 @@ class Server(unittest.TestCase):
         self.assertEqual(len(self.seen), 2)
 
     def test_failure_reason_without_mailbox_data(self):
-        """Второй обрыв — ошибка с причиной; строка ответа сервера в неё не попадает."""
+        """A second drop gives an error with a reason; a line of the server answer does not reach it."""
         def broken(conn):
             raise core.imaplib.IMAP4.abort("unexpected response: '* 5 FETCH (Subject: secret)'")
 

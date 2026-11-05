@@ -1,4 +1,4 @@
-"""Добавляет удалённому конвертеру docling-mcp параметр ocr_lang из DOCLING_MCP_OCR_LANG."""
+"""Adds to the remote converter of docling-mcp the parameter ocr_lang from DOCLING_MCP_OCR_LANG."""
 import pathlib
 
 import docling_mcp.tools.converters.remote as remote

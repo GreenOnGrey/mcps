@@ -1,6 +1,6 @@
-# Релиз по тегу vX.Y.Z: образы (опубликованный тег не пересобирается), затем чарт
-# oci://ghcr.io/<организация>/charts/mcp-servers с версией X.Y.Z. На машины ничего не
-# выкатывается: версию чарта закрепляет MCP_CHART_VERSION в config/versions.env репозитория installer.
+# A release on a tag vX.Y.Z: images (a published tag is not rebuilt), then the chart
+# oci://ghcr.io/<organization>/charts/mcp-servers with version X.Y.Z. Nothing rolls out to
+# machines: MCP_CHART_VERSION in config/versions.env of the repository installer pins the chart.
 name: release
 on:
   push:
@@ -38,7 +38,7 @@ jobs:
           repo="oci://ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/charts"
           printf '%s' "$GH_TOKEN" | helm registry login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
           if helm show chart "$repo/mcp-servers" --version "$version" >/dev/null 2>&1; then
-            echo "- $repo/mcp-servers:$version — уже опубликован" >>"$GITHUB_STEP_SUMMARY"
+            echo "- $repo/mcp-servers:$version is already published" >>"$GITHUB_STEP_SUMMARY"
             exit 0
           fi
           helm lint charts/mcp-servers

@@ -1,4 +1,4 @@
-"""Юнит-тесты docgen (FTR.NAB.CHAT-0003 qa: GEN-*, EDT-*, CNV-*, SEC-*).
+"""Unit tests of docgen (FTR.NAB.CHAT-0003 qa: GEN-*, EDT-*, CNV-*, SEC-*).
 
 python -m unittest discover -s tests — из каталога образа; нужен pandoc
 (PANDOC), LibreOffice и Chromium не нужны: их проверяет test.sh.

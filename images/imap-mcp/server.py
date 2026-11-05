@@ -1,9 +1,9 @@
-"""imap-mcp — MCP-сервер почтового ящика по IMAP только для чтения (FTR.NAB.CMN-0006 R20–R22).
+"""imap-mcp: a read-only MCP server of a mailbox over IMAP (FTR.NAB.CMN-0006 R20–R22).
 
-Прокси MCP Nabu добавляет OAuth-токен пользователя в каждый запрос; сервер
-узнаёт по токену адрес ящика, входит по XOAUTH2 и читает, ничего не меняя.
-Streamable HTTP без состояния: между запросами в памяти остаётся только
-адрес ящика по хешу токена.
+The MCP proxy of Nabu adds the OAuth token of the user to each request; the server
+finds the address of the mailbox by the token, signs in by XOAUTH2 and reads, changing nothing.
+Stateless Streamable HTTP: between requests only the address of the mailbox
+by the hash of the token stays in memory.
 """
 
 from __future__ import annotations
@@ -38,8 +38,8 @@ AUTH_FAILED = "imap_mcp_auth_failed"
 
 
 def _reason(e: Exception) -> str:
-    """Причина ошибки протокола без данных ящика: imaplib дописывает к «unexpected
-    response» строку ответа сервера — она отрезается, как и всё после 200 символов."""
+    """The reason of a protocol error without data of the mailbox: imaplib appends to "unexpected
+    response" a line of the server answer, which is cut, as is everything after 200 characters."""
     text = str(e)
     for cut in ("unexpected response", "unexpected tagged response", "unexpected untagged response"):
         i = text.find(cut)
@@ -56,7 +56,7 @@ def _token(headers) -> str:
 
 
 async def _run(ctx: Context, fn):
-    """Входит в ящик с токеном запроса и выполняет fn(conn) в отдельном потоке."""
+    """Signs in to the mailbox with the token of the request and runs fn(conn) in a separate thread."""
     token = _token(ctx.headers)
 
     def once(address):
@@ -71,8 +71,8 @@ async def _run(ctx: Context, fn):
         try:
             return once(address)
         except (imaplib.IMAP4.abort, OSError) as e:
-            # сервер оборвал соединение (Яндекс так делает время от времени):
-            # всё только читается — повторяем один раз на новом соединении
+            # the server dropped the connection (Yandex does so from time to time):
+            # everything is read-only, so we repeat once on a new connection
             log.warning("imap-mcp: %s: %s; retrying", type(e).__name__, _reason(e))
             return once(address)
 
@@ -80,15 +80,15 @@ async def _run(ctx: Context, fn):
         result = await anyio.to_thread.run_sync(work)
     except core.AuthError:
         core.forget(token)
-        # R21: отказ IMAP — тоже 401: обёртка with_auth подменит ответ, и Nabu
-        # покажет пользователю «подключите заново»
+        # R21: an IMAP refusal is 401 too: the wrapper with_auth replaces the answer, and Nabu
+        # shows the user "connect again"
         request = getattr(ctx.request_context, "request", None)
         if request is not None:
             request.scope.setdefault("state", {})[AUTH_FAILED] = True
         raise ToolError("The access to the mailbox was refused: connect the mail again in Connections.") from None
     except core.MailError as e:
         raise ToolError(str(e)) from None
-    except Exception as e:  # агенту и в журнал — причина без содержимого ящика (_reason)
+    except Exception as e:  # to the agent and the log goes the reason without contents of the mailbox (_reason)
         log.warning("imap-mcp: %s: %s", type(e).__name__, _reason(e))
         raise ToolError(f"The mail server failed: {type(e).__name__}: {_reason(e)}") from None
     return json.dumps(result, ensure_ascii=False)
@@ -151,8 +151,8 @@ def _plain(status: int, body: bytes, content_type: bytes = b"application/json"):
 
 
 def with_auth(app):
-    """401 без токена, с токеном, который отверг сервис адреса, и при отказе IMAP
-    во время вызова (R21); /healthz — без токена."""
+    """401 without a token, with a token the address service refused, and with an IMAP refusal
+    during a call (R21); /healthz takes no token."""
 
     async def wrapper(scope, receive, send):
         if scope["type"] != "http":
@@ -174,8 +174,8 @@ def with_auth(app):
         state = scope.setdefault("state", {})
 
         async def guarded_send(message):
-            # ответ JSON отправляется после выполнения инструмента: если IMAP
-            # отверг токен, вместо ответа — 401
+            # the JSON answer goes out after the tool has run: if IMAP
+            # refused the token, 401 replaces the answer
             if state.get(AUTH_FAILED):
                 if message["type"] == "http.response.start":
                     await unauthorized(send)
@@ -188,8 +188,8 @@ def with_auth(app):
 
 
 def build_app():
-    # Защита от DNS rebinding нужна локальным серверам; этот сервер вызывают по
-    # имени сервиса внутри кластера, и каждый вызов требует токен.
+    # Protection from DNS rebinding is for local servers; this server is called by the
+    # name of a service inside the cluster, and each call needs a token.
     app = mcp.streamable_http_app(stateless_http=True, json_response=True, host="0.0.0.0",
                                   transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False))
     return with_auth(app)

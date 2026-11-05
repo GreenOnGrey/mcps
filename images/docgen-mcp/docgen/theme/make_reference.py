@@ -1,7 +1,7 @@
-"""Образцы Pandoc темы default (FTR.NAB.CHAT-0003 R4): reference.docx и
-reference.pptx Pandoc со шрифтами PT. Запускается при сборке образа.
+"""Pandoc samples of the theme default (FTR.NAB.CHAT-0003 R4): reference.docx and
+reference.pptx of Pandoc with PT fonts. It runs at the build of the image.
 
-python -m docgen.theme.make_reference <каталог>
+python -m docgen.theme.make_reference <directory>
 """
 
 import os

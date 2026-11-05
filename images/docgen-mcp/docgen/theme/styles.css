@@ -1,5 +1,5 @@
-/* Тема default документов из Markdown в PDF (FTR.NAB.CHAT-0003 R4): шрифты PT,
-   те же, что в профиле песочницы documents. */
+/* The theme default of documents from Markdown to PDF (FTR.NAB.CHAT-0003 R4): PT fonts,
+   the same as in the sandbox profile documents. */
 html { font-family: "PT Serif", "DejaVu Serif", serif; font-size: 11pt; line-height: 1.45; color: #1b1b1b; }
 h1, h2, h3, h4, .title { font-family: "PT Sans", "DejaVu Sans", sans-serif; line-height: 1.2; page-break-after: avoid; }
 h1, .title { font-size: 20pt; margin: 0 0 12pt; }

@@ -1,5 +1,5 @@
-"""Клиент doc-convert (FTR.NAB.CHAT-0003 tech §3): Gotenberg с LibreOffice и
-Chromium и сайдкар legacy (DOC/XLS/PPT → OOXML)."""
+"""The client of doc-convert (FTR.NAB.CHAT-0003 tech §3): Gotenberg with LibreOffice and
+Chromium, and the sidecar legacy (DOC/XLS/PPT → OOXML)."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ def _auth() -> dict:
 
 
 def multipart(fields: dict[str, str], files: list[tuple[str, str, bytes]]) -> tuple[bytes, str]:
-    """Тело multipart/form-data: поля и файлы (имя поля, имя файла, содержимое)."""
+    """A body of multipart/form-data: fields and files (field name, file name, contents)."""
     boundary = uuid.uuid4().hex
     out = bytearray()
     for k, v in fields.items():
@@ -47,7 +47,7 @@ def _post(url: str, body: bytes, ctype: str, timeout: int) -> bytes:
 
 
 def office_to_pdf(path: str, pages: str = "") -> bytes:
-    """Офисный документ → PDF через LibreOffice."""
+    """An office document → PDF through LibreOffice."""
     with open(path, "rb") as f:
         data = f.read()
     fields = {"nativePageRanges": pages} if pages else {}
@@ -56,7 +56,7 @@ def office_to_pdf(path: str, pages: str = "") -> bytes:
 
 
 def html_to_pdf(index: bytes, assets: list[tuple[str, bytes]], options: dict) -> bytes:
-    """HTML → PDF через Chromium без сети: index.html и файлы рядом с ним."""
+    """HTML → PDF through Chromium without a network: index.html and the files next to it."""
     fields = {k: str(v).lower() if isinstance(v, bool) else str(v) for k, v in options.items()}
     files = [("files", "index.html", index)] + [("files", name, data) for name, data in assets]
     body, ctype = multipart(fields, files)
@@ -64,7 +64,7 @@ def html_to_pdf(index: bytes, assets: list[tuple[str, bytes]], options: dict) ->
 
 
 def legacy(path: str, to: str) -> bytes:
-    """DOC/XLS/PPT/ODS… → docx/xlsx/pptx через сайдкар legacy."""
+    """DOC/XLS/PPT/ODS… → docx/xlsx/pptx through the sidecar legacy."""
     with open(path, "rb") as f:
         data = f.read()
     name = urllib.request.quote(os.path.basename(path))

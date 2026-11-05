@@ -1,4 +1,4 @@
-"""Тесты ядра IMAP только для чтения (FTR.NAB.CMN-0006 YML-*): python -m unittest."""
+"""Tests of the read-only IMAP core (FTR.NAB.CMN-0006 YML-*): python -m unittest."""
 
 import io
 import json
@@ -24,7 +24,7 @@ HEAD = RAW.split(b"MIME-Version")[0] + b"\r\n"
 
 
 class FakeIMAP:
-    """Записывает команды; отвечает как сервер с одним письмом, uid 7."""
+    """Records commands; answers as a server with one message, uid 7."""
 
     def __init__(self, folders=None, auth_error=None):
         self.cmds = []
@@ -111,7 +111,7 @@ class Core(unittest.TestCase):
         self.assertEqual(search[2][:2], ("CHARSET", "UTF-8"))
         self.assertEqual(search[2][-1], "FROM")
         self.assertEqual(search[3], "Иван".encode())
-        # второе условие не латиницей проверяется по раскодированным заголовкам
+        # the second non-Latin condition is checked against decoded headers
         self.assertEqual([m["uid"] for m in out], [7])
 
     def test_bad_date(self):
@@ -174,12 +174,12 @@ class Threads(unittest.TestCase):
         self.assertEqual(len(searches), 2)  # INBOX и «Отправленные»; Archive — \\Noselect
         self.assertEqual(t["threadId"], "<root@example.ru>")
         self.assertTrue(all("BODY.PEEK" in str(c) for c in conn.cmds if c[0] == "UID" and c[1] == "FETCH"))
-        # одно и то же письмо из двух папок — один раз (письмо без Message-ID не опознать)
+        # the same message from two folders comes once (a message without a Message-ID cannot be identified)
         ids = [m["messageId"] for m in t["messages"] if m["messageId"]]
         self.assertEqual(ids, ["<m1@example.ru>"])
 
     def test_read_thread_without_header_search(self):
-        """Яндекс не ищет по заголовкам: письма с даты since, цепочка — по их заголовкам."""
+        """Yandex does not search by headers: messages from the date since, the thread by their headers."""
         class NoHeaderSearch(FakeIMAP):
             def uid(self, cmd, *args):
                 if cmd == "SEARCH" and "HEADER" in args:
@@ -191,7 +191,7 @@ class Threads(unittest.TestCase):
         t = core.read_thread(conn, "<root@example.ru>", since="2026-10-12")
         searches = [c[2] for c in conn.cmds if c[0] == "UID" and c[1] == "SEARCH"]
         self.assertIn(("SINCE", "12-Oct-2026"), searches)
-        # uid 3 — письмо другой цепочки — не вошло
+        # uid 3, a message of another thread, is not included
         self.assertEqual([(m["uid"], m["messageId"]) for m in t["messages"]], [(7, "<m1@example.ru>")])
         with self.assertRaises(core.MailError):
             core.read_thread(NoHeaderSearch(), "<root@example.ru>", since="12.10.2026")

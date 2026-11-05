@@ -1,20 +1,20 @@
-# MCP-серверы стенда (FTR.NAB.CMN-0006, tech §2.5). Включение — опциями
-# MCP_DOCLING, MCP_SEARCH, MCP_YANDEX_MAIL, MCP_DOCGEN; образы и версии — config/versions.env.
-# Ключи доступа приходят из секретов namespace (их создаёт installer).
+# MCP servers of the stand (FTR.NAB.CMN-0006, tech §2.5). They are turned on by the options
+# MCP_DOCLING, MCP_SEARCH, MCP_YANDEX_MAIL, MCP_DOCGEN; images and versions are in config/versions.env.
+# Access keys come from secrets of the namespace (installer creates them).
 
 docling:
   enabled: false
   serve:
     image: quay.io/docling-project/docling-serve-cpu:v1.37.0
-    # Разбор документа на CPU: модели раскладки, таблиц и OCR в памяти процесса.
-    # Замер на проде за 7 дней (2026-10-24): CPU p95 2m, пик 12m; память p95 1085 МиБ,
-    # пик 1143 МиБ. Запрос — по памяти с запасом; разбор идёт в лимите 2 CPU / 4 ГиБ.
+    # Parsing a document on CPU: the models of layout, tables and OCR are in the memory of the process.
+    # Measured on prod over 7 days (2026-10-24): CPU p95 2m, peak 12m; memory p95 1085 MiB,
+    # peak 1143 MiB. The request follows memory with a margin; parsing runs within the limit of 2 CPU / 4 GiB.
     resources: { requests: { cpu: 100m, memory: 1280Mi }, limits: { cpu: "2", memory: 4Gi } }
     maxFileMB: 25
   mcp:
     image: ghcr.io/greenongrey/docling-mcp:3.3.0
     resources: { requests: { cpu: 50m, memory: 256Mi }, limits: { cpu: "1", memory: 1Gi } }
-    # Языки распознавания сканов (EasyOCR).
+    # Languages of recognizing scans (EasyOCR).
     ocrLang: "ru,en"
   auth:
     image: nginxinc/nginx-unprivileged:1.31-alpine
@@ -28,20 +28,20 @@ search:
   searxng:
     image: searxng/searxng:2026.10.11-ad46ebd7d
     resources: { requests: { cpu: 50m, memory: 256Mi }, limits: { cpu: "1", memory: 512Mi } }
-  # Поисковые системы SearXNG (решение 3: без Google — он быстрее всех блокирует IP дата-центра).
+  # Search engines of SearXNG (decision 3: no Google, which blocks data center IPs fastest).
   engines: [duckduckgo, bing, brave, wikipedia, github, stackoverflow, arxiv]
 
 yandexMail:
   enabled: false
-  # Собственный сервер IMAP только для чтения (images/imap-mcp), тег — его VERSION.
+  # Our own read-only IMAP server (images/imap-mcp), the tag is its VERSION.
   image: ghcr.io/greenongrey/imap-mcp:0.2.2
   imapHost: imap.yandex.com
-  # Ссылка на письмо: поиск по Message-ID в веб-интерфейсе ({msgid} — без угловых скобок).
+  # The link to a message: a search by Message-ID in the web interface ({msgid} has no angle brackets).
   webLink: "https://mail.yandex.ru/#search?request={msgid}"
   resources: { requests: { cpu: 10m, memory: 64Mi }, limits: { cpu: 500m, memory: 256Mi } }
 
-# Документы (FTR.NAB.CHAT-0003 tech §2, §3): docgen — MCP-сервер, doc-convert —
-# Gotenberg (LibreOffice и Chromium без сети) и сайдкар legacy.
+# Documents (FTR.NAB.CHAT-0003 tech §2, §3): docgen is an MCP server, doc-convert is
+# Gotenberg (LibreOffice and Chromium without a network) with the sidecar legacy.
 docgen:
   enabled: false
   image: ghcr.io/greenongrey/docgen-mcp:0.1.3
@@ -52,17 +52,17 @@ docConvert:
   resources: { requests: { cpu: 100m, memory: 512Mi }, limits: { cpu: "2", memory: 2Gi } }
   legacy:
     resources: { requests: { cpu: 10m, memory: 128Mi }, limits: { cpu: "1", memory: 1Gi } }
-  # Очереди конвертаций; сверх них — 503 «сервис занят».
+  # Queues of conversions; beyond them, 503 "service busy".
   queue: 10
 
-# Кто вызывает серверы: компоненты Nabu (app.kubernetes.io/name=nabu) и проверки стенда.
-# api — прокси MCP для агентов, worker — сборщик памяти коммуникаций, agent —
-# проверка подключения в каталоге.
+# Who calls the servers: components of Nabu (app.kubernetes.io/name=nabu) and the checks of the stand.
+# api is the MCP proxy for agents, worker is the collector of the memory of communications, agent is
+# the check of a connection in the catalog.
 callers:
   namespace: nabu
   name: nabu
   components: [api, worker, agent]
-# S3 стенда: копии файлов пространства для разбора документов (R14).
+# S3 of the stand: copies of workspace files for document parsing (R14).
 s3:
   namespace: storages
   ports: [9000, 8333]

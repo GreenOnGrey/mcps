@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
-# Тест образа docgen-mcp вместе с doc-convert (FTR.NAB.CHAT-0003 qa, уровень C):
-# сеть Docker без выхода наружу; «S3» — HTTP-сервер с GET и PUT, «sink» —
-# сервер, который считает запросы к себе (проверка SSRF). Проверки: 401 без
-# ключа, шесть инструментов, DOCX и PDF из Markdown, DOCX → PDF, HTML с
-# внешними ссылками → PDF без единого запроса к sink, не root, корень только
-# для чтения.
-#   images/docgen-mcp/test.sh <образ docgen-mcp> [образ doc-convert]
+# A test of the image docgen-mcp together with doc-convert (FTR.NAB.CHAT-0003 qa, level C):
+# a Docker network with no way out; "S3" is an HTTP server with GET and PUT, "sink" is
+# a server that counts requests to itself (a check of SSRF). Checks: 401 without
+# a key, six tools, DOCX and PDF from Markdown, DOCX → PDF, HTML with
+# external links → PDF without a single request to sink, not root, a read-only
+# root.
+#   images/docgen-mcp/test.sh <image docgen-mcp> [image doc-convert]
 set -euo pipefail
-image=${1:?образ docgen-mcp}
+image=${1:?the image docgen-mcp}
 convert=${2:-${DOC_CONVERT_IMAGE:-}}
-[[ -n $convert ]] || { echo "нужен образ doc-convert (второй аргумент или DOC_CONVERT_IMAGE)" >&2; exit 2; }
+[[ -n $convert ]] || { echo "the image doc-convert is required (the second argument or DOC_CONVERT_IMAGE)" >&2; exit 2; }
 net=docgen-test-$$
 cleanup() { docker rm -f "$net-s3" "$net-sink" "$net-convert" "$net-legacy" "$net-docgen" >/dev/null 2>&1 || true; docker network rm "$net" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 docker network create --internal "$net" >/dev/null
 
-# «S3» и sink — тот же образ docgen с маленьким сервером на python
+# "S3" and sink are the same image docgen with a small server in python
 server='
 import http.server, os, sys
 root = "/tmp/s3"; os.makedirs(root, exist_ok=True)

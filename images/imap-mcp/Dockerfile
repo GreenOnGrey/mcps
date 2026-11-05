@@ -1,5 +1,5 @@
-# imap-mcp — собственный MCP-сервер IMAP только для чтения (FTR.NAB.CMN-0006 R20–R22).
-# Тег образа — IMAP_MCP_VERSION из config/versions.env.
+# imap-mcp: our own read-only IMAP MCP server (FTR.NAB.CMN-0006 R20–R22).
+# The tag of the image is IMAP_MCP_VERSION from config/versions.env.
 FROM python:3.12-slim-trixie
 ARG VERSION
 WORKDIR /app

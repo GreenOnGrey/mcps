@@ -1,6 +1,6 @@
-"""Загрузка исходников по ссылкам прокси Nabu и выгрузка результата
-(FTR.NAB.CHAT-0003 tech §2.2): только хосты S3 стенда, потоково и с лимитом.
-Путь файла в пространстве приходит во фрагменте #nabu-path=…"""
+"""Downloading sources by links of the Nabu proxy and uploading the result
+(FTR.NAB.CHAT-0003 tech §2.2): only hosts of S3 of the stand, streamed and with a limit.
+The path of a file in the workspace comes in the fragment #nabu-path=…"""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from .errors import DocError
 
 
 def split(url: str) -> tuple[str, str]:
-    """Ссылка без фрагмента и путь файла в пространстве (или имя из ссылки)."""
+    """A link without the fragment and the path of a file in the workspace (or the name from the link)."""
     base, _, frag = url.partition("#")
     rel = ""
     if frag.startswith("nabu-path="):
@@ -25,7 +25,7 @@ def split(url: str) -> tuple[str, str]:
 
 
 def safe_rel(p: str) -> str:
-    """Относительный путь без .. и без корня; иначе пустая строка."""
+    """A relative path without .. and without a root; otherwise an empty string."""
     p = p.replace("\\", "/").strip()
     norm = posixpath.normpath(p) if p else ""
     if not norm or norm in (".", "..") or norm.startswith("/") or norm.startswith("../"):
@@ -41,7 +41,7 @@ def check_host(url: str) -> str:
 
 
 def download(url: str, workdir: str, max_bytes: int | None = None) -> str:
-    """Скачивает файл по ссылке прокси в workdir по его пути в пространстве."""
+    """Downloads a file by a proxy link to workdir at its path in the workspace."""
     max_bytes = max_bytes or limits.MAX_SOURCE
     base, rel = split(url)
     check_host(base)
@@ -65,7 +65,7 @@ def download(url: str, workdir: str, max_bytes: int | None = None) -> str:
 
 
 def upload(put_url: str, path: str) -> int:
-    """Выгружает результат одним PUT по ссылке прокси."""
+    """Uploads the result with one PUT by a proxy link."""
     check_host(put_url.partition("#")[0])
     size = os.path.getsize(path)
     if size > limits.MAX_RESULT:

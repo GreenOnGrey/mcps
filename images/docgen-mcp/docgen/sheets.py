@@ -1,5 +1,5 @@
-"""Таблицы XLSX (FTR.NAB.CHAT-0003 R2, R14, tech §2.3, §2.5):
-render_spreadsheet по описанию книги и листы книги для предпросмотра сайта."""
+"""XLSX tables (FTR.NAB.CHAT-0003 R2, R14, tech §2.3, §2.5):
+render_spreadsheet by a description of a workbook, and the sheets of a workbook for the preview of the site."""
 
 from __future__ import annotations
 
@@ -44,7 +44,7 @@ def _value(v, typ: str, where: str):
 
 
 def render(workbook: dict, out: str, template: str | None = None) -> int:
-    """Пишет книгу; возвращает число листов."""
+    """Writes a workbook; returns the number of sheets."""
     limits.check_inline("workbook", workbook)
     if not isinstance(workbook, dict) or not isinstance(workbook.get("sheets"), list) or not workbook["sheets"]:
         raise DocError("workbook.sheets is a non-empty list.")
@@ -110,7 +110,7 @@ def render(workbook: dict, out: str, template: str | None = None) -> int:
 
 
 def _shown(cell) -> str:
-    """Значение ячейки так, как его показывает Excel, для частых форматов."""
+    """The value of a cell as Excel shows it, for common formats."""
     v = cell.value
     fmt = cell.number_format or "General"
     if isinstance(v, bool):
@@ -134,8 +134,8 @@ def _shown(cell) -> str:
 
 
 def preview(path: str, max_rows: int = 500, max_cols: int = 50) -> dict:
-    """Листы книги для предпросмотра: значения, сохранённые в файле, а при их
-    отсутствии — формулы (R14)."""
+    """The sheets of a workbook for the preview: values saved in the file, and when
+    there are none, formulas (R14)."""
     values = load_workbook(path, data_only=True)
     formulas = load_workbook(path, data_only=False)
     out = []

@@ -1,6 +1,6 @@
-# Сетевые политики (FTR.NAB.CMN-0006 R16, tech §2.5); их применяет kindnet стенда.
-# Вход — только api, worker и agent Nabu и проверки стенда; выход — интернет без частных сетей
-# и метаданных облака, docling-serve — ещё S3 стенда.
+# Network policies (FTR.NAB.CMN-0006 R16, tech §2.5); kindnet of the stand applies them.
+# Ingress: only api, worker and agent of Nabu and the checks of the stand; egress: the internet without private networks
+# and cloud metadata, and for docling-serve also S3 of the stand.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -47,7 +47,7 @@ metadata:
   name: egress-dns
   labels: {{- include "mcp.labels" . | nindent 4 }}
 spec:
-  # doc-convert не ходит никуда, даже в DNS: файлы приходят в теле запроса (FTR.NAB.CHAT-0003 R18)
+  # doc-convert goes nowhere, not even to DNS: files come in the request body (FTR.NAB.CHAT-0003 R18)
   podSelector:
     matchExpressions: [{ key: app.kubernetes.io/name, operator: NotIn, values: [doc-convert] }]
   policyTypes: [Egress]
@@ -102,8 +102,8 @@ spec:
       ports: [{ port: 5001 }]
 ---
 {{- if .Values.docgen.enabled }}
-# FTR.NAB.CHAT-0003 tech §9.3: в doc-convert — только docgen, api Nabu
-# (предпросмотр) и проверки; docgen ходит в doc-convert и S3.
+# FTR.NAB.CHAT-0003 tech §9.3: into doc-convert only docgen, api of Nabu
+# (preview) and the checks; docgen goes to doc-convert and S3.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -132,7 +132,7 @@ spec:
     - to: [{ podSelector: { matchLabels: { app.kubernetes.io/name: doc-convert } } }]
       ports: [{ port: 3000 }, { port: 3001 }]
 ---
-# Метрики docgen забирает vmagent из observability — только порт docgen.
+# vmagent from observability takes the metrics of docgen, only the port of docgen.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
@@ -147,7 +147,7 @@ spec:
       ports: [{ port: 8000 }]
 ---
 {{- end }}
-# Пробный под проверок стенда ходит к серверам namespace.
+# The probe pod of the checks of the stand goes to the servers of the namespace.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:

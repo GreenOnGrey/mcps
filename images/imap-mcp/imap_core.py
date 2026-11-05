@@ -1,12 +1,12 @@
-"""Чтение почтового ящика по IMAP с OAuth-токеном его владельца.
+"""Reading a mailbox over IMAP with the OAuth token of its owner.
 
-FTR.NAB.CMN-0006 R20–R22: токен приходит с каждым запросом (его добавляет
-прокси MCP Nabu), адрес ящика определяется по тому же токену, ничего не
-хранится. Папки открываются командой EXAMINE, тела писем читаются через
-BODY.PEEK — флаги писем не меняются; область mail:imap_ro запрещает изменения
-и на стороне Яндекса.
+FTR.NAB.CMN-0006 R20–R22: the token comes with each request (added by
+the MCP proxy of Nabu), the address of the mailbox comes from the same token, and nothing is
+stored. Folders open with the command EXAMINE, and bodies of messages are read through
+BODY.PEEK, so the flags of messages do not change; the scope mail:imap_ro forbids changes
+on the side of Yandex too.
 
-Тексты ошибок — для агента, поэтому по-английски, как ответы прокси Nabu.
+Texts of errors are for the agent, so they are in English, like the answers of the Nabu proxy.
 """
 
 from __future__ import annotations
@@ -34,9 +34,9 @@ from email.message import Message
 
 IMAP_HOST = os.environ.get("IMAP_HOST", "imap.yandex.com")
 IMAP_PORT = int(os.environ.get("IMAP_PORT", "993"))
-# Откуда берётся адрес ящика: GET с токеном, поле JSON ответа.
+# Where the address of the mailbox comes from: GET with the token, a JSON field of the answer.
 USERINFO_URL = os.environ.get("USERINFO_URL", "https://login.yandex.ru/info?format=json")
-USERINFO_AUTH = os.environ.get("USERINFO_AUTH", "OAuth")  # «OAuth <токен>» у Яндекса, «Bearer» у других
+USERINFO_AUTH = os.environ.get("USERINFO_AUTH", "OAuth")  # "OAuth <token>" at Yandex, "Bearer" at others
 USERINFO_FIELD = os.environ.get("USERINFO_FIELD", "default_email")
 TIMEOUT = float(os.environ.get("IMAP_TIMEOUT", "30"))
 MAX_RESULTS = 50
@@ -44,27 +44,27 @@ MAX_MESSAGE_BYTES = int(os.environ.get("MAX_MESSAGE_BYTES", str(25 << 20)))
 CACHE_TTL = 300.0
 
 HEADER_FIELDS = "FROM TO CC SUBJECT DATE MESSAGE-ID IN-REPLY-TO REFERENCES LIST-UNSUBSCRIBE LIST-ID PRECEDENCE AUTO-SUBMITTED"
-# Ссылка на письмо в веб-интерфейсе провайдера: {msgid} — Message-ID без угловых
-# скобок (FTR.NAB.CMN-0003 R6: заметка ведёт к письму). Пусто — без ссылки.
+# The link to a message in the web interface of the provider: {msgid} is the Message-ID without angle
+# brackets (FTR.NAB.CMN-0003 R6: a note leads to the message). Empty means no link.
 WEB_LINK = os.environ.get("WEB_LINK", "https://mail.yandex.ru/#search?request={msgid}")
-# Папки, из которых не читаются ни поиск по ящику, ни цепочки.
+# Folders from which neither a mailbox search nor threads read.
 SKIP_ROLES = {"Trash", "Junk", "Spam", "Drafts"}
-# Цепочка на сервере без поиска по заголовкам: письма за THREAD_DAYS дней (без
-# since), не больше THREAD_SCAN новейших в папке, заголовки — по THREAD_CHUNK.
+# A thread on a server without a search by headers: messages of THREAD_DAYS days (without
+# since), at most THREAD_SCAN newest in a folder, headers by THREAD_CHUNK.
 THREAD_DAYS = int(os.environ.get("THREAD_DAYS", "90"))
 THREAD_SCAN = 3000
 THREAD_CHUNK = 200
 
 
 class AuthError(Exception):
-    """Токена нет, он истёк или отозван: HTTP-ответ — 401."""
+    """No token, or it has expired or been revoked: the HTTP answer is 401."""
 
 
 class MailError(Exception):
-    """Ошибка для агента: текст объясняет, что сделать."""
+    """An error for the agent: the text explains what to do."""
 
 
-# --- адрес ящика по токену ---------------------------------------------------
+# --- the address of the mailbox by the token --------------------------------
 
 _cache: dict[str, tuple[str, float]] = {}
 _cache_lock = threading.Lock()
@@ -75,7 +75,7 @@ def _key(token: str) -> str:
 
 
 def resolve_email(token: str, opener=urllib.request.urlopen) -> str:
-    """Адрес владельца токена; хранится в памяти пять минут по хешу токена."""
+    """The address of the owner of the token; kept in memory for five minutes by the hash of the token."""
     if not token:
         raise AuthError("no token")
     k = _key(token)
@@ -111,7 +111,7 @@ def forget(token: str) -> None:
         _cache.pop(_key(token), None)
 
 
-# --- modified UTF-7 имён папок IMAP (RFC 3501 §5.1.3) -------------------------
+# --- modified UTF-7 of IMAP folder names (RFC 3501 §5.1.3) --------------------
 
 def decode_folder(name: str) -> str:
     out, i = [], 0
@@ -158,7 +158,7 @@ def quote(s: str) -> str:
 # --- IMAP --------------------------------------------------------------------
 
 def connect(address: str, token: str, factory=None) -> imaplib.IMAP4:
-    """Соединение после входа по XOAUTH2 с токеном владельца."""
+    """A connection after signing in by XOAUTH2 with the token of the owner."""
     if factory is None:
         def factory():
             return imaplib.IMAP4_SSL(IMAP_HOST, IMAP_PORT, ssl_context=ssl.create_default_context(), timeout=TIMEOUT)
@@ -259,15 +259,15 @@ class Query:
     recipient: str = ""
     subject: str = ""
     text: str = ""
-    since: str = ""   # ГГГГ-ММ-ДД
-    before: str = ""  # ГГГГ-ММ-ДД, не включая
+    since: str = ""   # YYYY-MM-DD
+    before: str = ""  # YYYY-MM-DD, exclusive
     unseen: bool = False
     limit: int = 20
-    offset: int = 0  # пропустить столько новейших писем: постраничный обход
+    offset: int = 0  # skip this many newest messages: paging
 
 
 def search(conn, q: Query) -> list[dict]:
-    """Письма по запросу, новые сначала, с заголовками."""
+    """Messages by a query, newest first, with headers."""
     _examine(conn, q.folder)
     crit: list[str] = []
     for key, iso in (("SINCE", q.since), ("BEFORE", q.before)):
@@ -277,9 +277,9 @@ def search(conn, q: Query) -> list[dict]:
             crit += [key, _imap_date(iso)]
     if q.unseen:
         crit.append("UNSEEN")
-    # IMAP принимает один literal на команду: текст (или первое условие не
-    # латиницей) уходит на сервер, остальные условия не латиницей проверяются
-    # здесь по раскодированным заголовкам.
+    # IMAP takes one literal per command: the text (or the first non-Latin
+    # condition) goes to the server, and other non-Latin conditions are checked
+    # here against decoded headers.
     terms = [("TEXT", q.text), ("FROM", q.sender), ("TO", q.recipient), ("SUBJECT", q.subject)]
     literal, local = None, []
     for key, value in terms:
@@ -405,8 +405,8 @@ _MSGID = re.compile(r"<[^<>\s]+>")
 
 
 def thread_id(msg: Message) -> str:
-    """Цепочка письма — Message-ID её первого письма: первый в References, иначе
-    In-Reply-To, иначе собственный (IMAP не даёт идентификатора цепочки)."""
+    """The thread of a message is the Message-ID of its first message: the first in References, otherwise
+    In-Reply-To, otherwise its own (IMAP gives no thread identifier)."""
     for header in ("References", "In-Reply-To", "Message-ID"):
         found = _MSGID.findall(msg.get(header) or "")
         if found:
@@ -415,7 +415,7 @@ def thread_id(msg: Message) -> str:
 
 
 def bulk(msg: Message) -> bool:
-    """Рассылка или автоматическое письмо — по заголовкам (RFC 2369, 3834)."""
+    """A mailing list or an automatic message, by headers (RFC 2369, 3834)."""
     precedence = (msg.get("Precedence") or "").strip().lower()
     auto = (msg.get("Auto-Submitted") or "no").strip().lower()
     return bool(msg.get("List-Unsubscribe") or msg.get("List-Id")) or precedence in ("bulk", "list", "junk") or auto != "no"
@@ -429,18 +429,18 @@ def web_link(message_id: str | None) -> str:
 
 
 def thread_folders(conn) -> list[str]:
-    """Папки для поиска по всему ящику: без корзины, спама и черновиков. Если у
-    ящика есть папка «Вся почта» (\\All, Gmail), достаточно её одной."""
+    """Folders for a search over the whole mailbox: no trash, spam and drafts. If the
+    mailbox has the folder "All Mail" (\\All, Gmail), it alone is enough."""
     folders = list_folders(conn)
     every = [f["name"] for f in folders if f["special"] == "All"]
     return every or [f["name"] for f in folders if f["special"] not in SKIP_ROLES]
 
 
 def _thread_items(conn, thread: str, since: str) -> list[dict]:
-    """Письма цепочки в открытой папке. Поиск по заголовкам есть не у всех
-    серверов (Яндекс отвечает «[UNAVAILABLE] Backend error»): тогда — письма
-    с даты since (по умолчанию THREAD_DAYS дней), их заголовки и то же
-    правило цепочки, по которому письма сгруппировал search_messages."""
+    """Messages of a thread in an open folder. Not all servers have a search by
+    headers (Yandex answers "[UNAVAILABLE] Backend error"): then it takes messages
+    from the date since (by default THREAD_DAYS days), their headers and the same
+    thread rule by which search_messages grouped the messages."""
     typ, data = conn.uid("SEARCH", "OR", "HEADER", "Message-ID", quote(thread), "HEADER", "References", quote(thread))
     if typ == "OK":
         return fetch_headers(conn, (data[0] or b"").split())
@@ -460,9 +460,9 @@ def _thread_items(conn, thread: str, since: str) -> list[dict]:
 
 
 def read_thread(conn, thread: str, max_chars: int = 40000, since: str = "") -> dict:
-    """Письма цепочки из всех папок, по дате; письма остаются непрочитанными.
-    since (ГГГГ-ММ-ДД) — не раньше первого письма цепочки: сужает обход
-    серверов без поиска по заголовкам."""
+    """Messages of a thread from all folders, by date; messages stay unread.
+    since (YYYY-MM-DD) is not before the first message of the thread: it narrows the walk over
+    servers without a search by headers."""
     thread = thread.strip()
     if not _MSGID.fullmatch(thread):
         raise MailError("thread_id is the Message-ID of the first message of the thread, like <abc@example.com>")
@@ -482,7 +482,7 @@ def read_thread(conn, thread: str, max_chars: int = 40000, since: str = "") -> d
 
 
 def read_message(conn, folder: str, uid: int, max_chars: int = 20000) -> dict:
-    """Заголовки, текст и список вложений; письмо остаётся непрочитанным."""
+    """Headers, text and a list of attachments; the message stays unread."""
     _examine(conn, folder)
     head = fetch_headers(conn, [str(int(uid)).encode()])
     if not head:

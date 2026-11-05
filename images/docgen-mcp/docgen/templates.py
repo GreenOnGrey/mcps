@@ -1,6 +1,6 @@
-"""fill_template: шаблоны DOCX, XLSX и PPTX с полями Jinja2
-(FTR.NAB.CHAT-0003 R3, tech §2.3). Окружение — песочница Jinja2 со строгими
-полями: шаблон не исполняет код, отсутствующее поле — ошибка."""
+"""fill_template: templates of DOCX, XLSX and PPTX with Jinja2 fields
+(FTR.NAB.CHAT-0003 R3, tech §2.3). The environment is a Jinja2 sandbox with strict
+fields: a template runs no code, and a missing field is an error."""
 
 from __future__ import annotations
 
@@ -70,7 +70,7 @@ def fill_xlsx(template: str, data: dict, out: str) -> None:
 
 
 def _cell(text: str):
-    """Число остаётся числом после подстановки."""
+    """A number stays a number after the substitution."""
     t = text.strip()
     if re.fullmatch(r"-?\d+", t):
         return int(t)
@@ -80,11 +80,11 @@ def _cell(text: str):
 
 
 class _Loop:
-    """Строки цикла r…end шаблона (маркеры и тело) становятся n строками данных.
+    """The rows of a loop r…end of a template (markers and body) become n rows of data.
 
-    Ссылки переносятся, как при вставке строк в Excel (R3): ниже цикла —
-    сдвигаются, на строки шаблона — указывают на строки данных, а диапазон
-    по ним растягивается на все строки данных.
+    References move as when inserting rows in Excel (R3): below the loop they
+    shift, those to rows of the template point to rows of data, and a range
+    over them stretches to all rows of data.
     """
 
     def __init__(self, sheet: str, r: int, end: int, n: int):
@@ -99,7 +99,7 @@ class _Loop:
         return self.r + max(self.n, 1) - 1 if last else self.r
 
     def formula(self, text: str, own: bool) -> str:
-        """Формула с перенесёнными ссылками на этот лист; own — формула на нём же."""
+        """A formula with moved references to this sheet; own: a formula on this very sheet."""
         try:
             tokens = Tokenizer(text).items
         except Exception:
@@ -135,7 +135,7 @@ class _Loop:
 
 
 def _rows(wb, ws, data: dict) -> None:
-    """Повтор строк между {%tr for x in list %} и {%tr endfor %} (решение 5 tech)."""
+    """A repeat of rows between {%tr for x in list %} and {%tr endfor %} (decision 5 of tech)."""
     r = 1
     while r <= ws.max_row:
         first = ws.cell(row=r, column=1).value
@@ -156,13 +156,13 @@ def _rows(wb, ws, data: dict) -> None:
         n_new = len(items) * len(body)
         n_old = end - r + 1
         loop = _Loop(ws.title, r, end, n_new)
-        # формулы книги вне цикла: ссылки на этот лист — как после вставки строк
+        # formulas of the workbook outside the loop: references to this sheet as after inserting rows
         for other in wb.worksheets:
             for row in other.iter_rows():
                 for cell in row:
                     if isinstance(cell.value, str) and cell.value.startswith("=") and not (other is ws and r <= cell.row <= end):
                         cell.value = loop.formula(cell.value, other is ws)
-        # строки шаблона уже скопированы в body: освобождаем их до сдвига того, что ниже
+        # rows of the template are already copied to body: we free them before shifting what is below
         for x in range(r, end + 1):
             for c in range(1, ws.max_column + 1):
                 ws.cell(row=x, column=c).value = None
@@ -180,7 +180,7 @@ def _rows(wb, ws, data: dict) -> None:
                     if isinstance(v, str) and ("{{" in v or "{%" in v):
                         v = _cell(_render(v, {**data, var: item}))
                     elif isinstance(v, str) and v.startswith("="):
-                        # формула строки шаблона протягивается на строку данных, как в Excel
+                        # the formula of a template row extends to the row of data, as in Excel
                         col = get_column_letter(c)
                         v = Translator(loop.formula(v, True), origin=f"{col}{r}").translate_formula(f"{col}{out}")
                     dst.value = v

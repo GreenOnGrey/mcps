@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# Тест образа doc-convert (FTR.NAB.CHAT-0003 qa, уровень C): Gotenberg и legacy
-# отвечают 401 без учётных данных; legacy переводит ODT в DOCX; файл с макросом
-# конвертируется, а макрос не выполняется. Совместная работа с docgen — в
+# A test of the image doc-convert (FTR.NAB.CHAT-0003 qa, level C): Gotenberg and legacy
+# answer 401 without credentials; legacy turns ODT into DOCX; a file with a macro
+# converts, and the macro does not run. Work together with docgen is in
 # images/docgen-mcp/test.sh.
 set -euo pipefail
-image=${1:?образ doc-convert}
+image=${1:?the image doc-convert}
 net=doc-convert-test-$$
 cleanup() { docker rm -f "$net-gb" "$net-legacy" >/dev/null 2>&1 || true; docker network rm "$net" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 docker network create --internal "$net" >/dev/null
-# как в чарте: корень только для чтения, /tmp и домашний каталог — временные (IMG-02)
+# as in the chart: a read-only root, and /tmp and the home directory are temporary (IMG-02)
 docker run -d --name "$net-gb" --network "$net" --read-only --tmpfs /tmp --tmpfs /home/gotenberg \
   -e GOTENBERG_API_BASIC_AUTH_USERNAME=u -e GOTENBERG_API_BASIC_AUTH_PASSWORD=p \
   "$image" gotenberg --api-enable-basic-auth --libreoffice-restart-after=1 --chromium-restart-after=1 >/dev/null

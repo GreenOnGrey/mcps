@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Тест образа docling-mcp (FTR.NAB.CMN-0006 IMG-01, IMG-03):
-#   - правка ocr_lang на месте, процесс не от root, корневая ФС только для чтения;
-#   - сервер отдаёт инструменты конвертации;
-#   - сайдкар nginx с шаблоном чарта (charts/mcp-servers/files/auth.conf.template):
-#     без ключа — 401, с ключом — запрос доходит до сервера.
+# A test of the image docling-mcp (FTR.NAB.CMN-0006 IMG-01, IMG-03):
+#   - the patch ocr_lang is in place, the process is not root, the root filesystem is read-only;
+#   - the server gives the tools of conversion;
+#   - the sidecar nginx with the template of the chart (charts/mcp-servers/files/auth.conf.template):
+#     401 without a key, and with a key the request reaches the server.
 set -euo pipefail
-image=${1:?образ}
+image=${1:?the image}
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 set -a
 # shellcheck source=../../config/versions.env
@@ -44,13 +44,13 @@ p.terminate()
 print("docling-mcp: ok,", len(names), "tools")
 '
 
-# сайдкар: docling-mcp и nginx в одной сети, как контейнеры одного пода
+# the sidecar: docling-mcp and nginx in one network, as containers of one pod
 key=$(openssl rand -hex 16)
 name=docling-mcp-test-$$
 trap 'docker rm -f "$name" "$name-auth" >/dev/null 2>&1 || true' EXIT
 docker run -d --name "$name" -e HOME=/tmp -e DOCLING_MCP_SERVICE_URL=http://127.0.0.1:9 "$image" \
   --transport streamable-http --host 127.0.0.1 --port 8000 conversion >/dev/null
-# ключ — в окружении контейнера (-e без значения берёт его из окружения скрипта), не в argv
+# the key is in the environment of the container (-e without a value takes it from the environment of the script), not in argv
 MCP_KEY=$key docker run -d --name "$name-auth" --network "container:$name" -e MCP_KEY -e 'NGINX_ENVSUBST_FILTER=^MCP_KEY$' \
   -v "$ROOT/charts/mcp-servers/files/auth.conf.template:/etc/nginx/templates/default.conf.template:ro" \
   "$MCP_PROXY_IMAGE" >/dev/null
@@ -65,6 +65,6 @@ for _ in $(seq 1 60); do
 done
 without=$(printf '' | code)
 with=$(printf 'header = "Authorization: Bearer %s"\n' "$key" | code)
-[[ $without == 401 ]] || { echo "без ключа ожидался 401, ответ $without"; exit 1; }
-[[ $with == 200 ]] || { echo "с ключом ожидался 200, ответ $with"; exit 1; }
-echo "docling-mcp: сайдкар — без ключа 401, с ключом 200"
+[[ $without == 401 ]] || { echo "401 was expected without a key, the answer is $without"; exit 1; }
+[[ $with == 200 ]] || { echo "200 was expected with a key, the answer is $with"; exit 1; }
+echo "docling-mcp: the sidecar gives 401 without a key and 200 with a key"

@@ -1,7 +1,7 @@
 {{- if .Values.docling.enabled }}
-# Разбор документов (FTR.NAB.CMN-0006 R8, R9; tech §2.5): docling-serve делает
-# разбор, docling-mcp в удалённом режиме — MCP поверх него. У docling-mcp нет
-# аутентификации: перед ним сайдкар nginx проверяет ключ (arch §7.2).
+# Document parsing (FTR.NAB.CMN-0006 R8, R9; tech §2.5): docling-serve does
+# the parsing, and docling-mcp in remote mode is MCP on top of it. docling-mcp has no
+# authentication: a sidecar nginx in front of it checks the key (arch §7.2).
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -34,7 +34,7 @@ spec:
           securityContext:
             runAsNonRoot: true
             allowPrivilegeEscalation: false
-            # EasyOCR дозагружает модели языков (ru) в домашний каталог при первом скане.
+            # EasyOCR downloads language models (ru) to the home directory at the first scan.
             readOnlyRootFilesystem: false
             capabilities: { drop: [ALL] }
 ---
@@ -53,9 +53,9 @@ metadata:
   name: docling-mcp-auth
   labels: {{- include "mcp.labels" . | nindent 4 }}
 data:
-  # Шаблон nginx — files/auth.conf.template (его же берёт тест образа docling-mcp):
-  # ключ подставляется из окружения при старте (envsubst образа), в ConfigMap и
-  # образе его нет.
+  # The nginx template is files/auth.conf.template (the test of the image docling-mcp takes it too):
+  # the key comes from the environment at start (envsubst of the image), and the ConfigMap and
+  # the image do not have it.
   default.conf.template: |
 {{ .Files.Get "files/auth.conf.template" | indent 4 }}
 ---
@@ -73,7 +73,7 @@ spec:
       labels: {{- include "mcp.labels" . | nindent 8 }}
         app.kubernetes.io/name: docling-mcp
       annotations:
-        # шаблон смонтирован через subPath: изменение конфигурации перезапускает под
+        # the template is mounted through subPath: a change of the configuration restarts the pod
         checksum/auth: {{ .Files.Get "files/auth.conf.template" | sha256sum | trunc 16 }}
     spec:
       {{- include "mcp.podSecurity" . | nindent 6 }}
@@ -104,7 +104,7 @@ spec:
           resources: {{- toYaml .Values.docling.auth.resources | nindent 12 }}
           {{- include "mcp.containerSecurity" . | nindent 10 }}
           volumeMounts:
-            # subPath: в каталоге ConfigMap есть служебные ..data и ..<время>, envsubst образа обходил бы и их
+            # subPath: the directory of a ConfigMap has the service entries ..data and ..<time>, and envsubst of the image would go through them too
             - { name: auth-template, mountPath: /etc/nginx/templates/default.conf.template, subPath: default.conf.template }
             - { name: nginx-conf, mountPath: /etc/nginx/conf.d }
             - { name: tmp, mountPath: /tmp }
