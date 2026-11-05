@@ -1,0 +1,104 @@
+{{- if .Values.search.enabled }}
+# Веб-поиск (FTR.NAB.CMN-0006 R10): mcp-searxng с ключом и SearXNG сайдкаром на
+# 127.0.0.1 — вне пода его не видно, лимитер и Valkey не нужны (решение 4).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: searxng-settings
+  labels: {{- include "mcp.labels" . | nindent 4 }}
+data:
+  settings.yml: |
+    use_default_settings:
+      engines:
+        keep_only: {{ toJson .Values.search.engines }}
+    # keep_only не включает системы, выключенные по умолчанию (bing — disabled: true);
+    # каждая заданная система включается явно.
+    engines:
+      {{- range .Values.search.engines }}
+      - { name: {{ . | quote }}, disabled: false }
+      {{- end }}
+    general:
+      instance_name: "Hammurapi stand"
+      enable_metrics: false
+    server:
+      limiter: false
+      public_instance: false
+      image_proxy: false
+      method: GET
+    search:
+      safe_search: 0
+      formats: [html, json]
+    outgoing:
+      request_timeout: 5.0
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: search
+  labels: {{- include "mcp.labels" . | nindent 4 }}
+    app.kubernetes.io/name: search
+spec:
+  replicas: 1
+  selector: { matchLabels: { app.kubernetes.io/name: search } }
+  template:
+    metadata:
+      labels: {{- include "mcp.labels" . | nindent 8 }}
+        app.kubernetes.io/name: search
+      annotations:
+        checksum/settings: {{ toJson .Values.search.engines | sha256sum | trunc 16 }}
+    spec:
+      {{- include "mcp.podSecurity" . | nindent 6 }}
+      containers:
+        - name: mcp-searxng
+          image: {{ .Values.search.mcp.image }}
+          ports: [{ name: http, containerPort: 3000 }]
+          env:
+            - { name: SEARXNG_URL, value: "http://127.0.0.1:8080" }
+            - { name: MCP_HTTP_PORT, value: "3000" }
+            - { name: MCP_HTTP_HOST, value: "0.0.0.0" }
+            - { name: MCP_HTTP_HARDEN, value: "true" }
+            - { name: MCP_HTTP_AUTH_TOKEN, valueFrom: { secretKeyRef: { name: mcp-search-key, key: key } } }
+            - { name: MCP_HTTP_STATELESS, value: "true" }
+            # С MCP_HTTP_HARDEN сервер не стартует без списка Origin. Запросы без Origin
+            # (прокси Nabu, проверки стенда) проходят при любом списке; браузерам здесь делать нечего.
+            - { name: MCP_HTTP_ALLOWED_ORIGINS, value: "http://127.0.0.1" }
+            # Host, с которым приходят прокси Nabu и проверки стенда.
+            - name: MCP_HTTP_ALLOWED_HOSTS
+              value: "search.{{ .Release.Namespace }}.svc:3000,search.{{ .Release.Namespace }}.svc.cluster.local:3000,search.{{ .Release.Namespace }}:3000,search:3000,127.0.0.1:3000,localhost:3000"
+          readinessProbe: { tcpSocket: { port: http }, periodSeconds: 10 }
+          resources: {{- toYaml .Values.search.mcp.resources | nindent 12 }}
+          {{- include "mcp.containerSecurity" . | nindent 10 }}
+          volumeMounts: [{ name: tmp, mountPath: /tmp }]
+        - name: searxng
+          image: {{ .Values.search.searxng.image }}
+          env:
+            - { name: GRANIAN_HOST, value: "127.0.0.1" }
+            - { name: SEARXNG_PORT, value: "8080" }
+            - { name: SEARXNG_SECRET, valueFrom: { secretKeyRef: { name: mcp-searxng-secret, key: key } } }
+            - { name: FORCE_OWNERSHIP, value: "false" }
+          resources: {{- toYaml .Values.search.searxng.resources | nindent 12 }}
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 977
+            runAsGroup: 977
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts:
+            - { name: settings, mountPath: /etc/searxng }
+            - { name: cache, mountPath: /var/cache/searxng }
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - { name: settings, configMap: { name: searxng-settings } }
+        - { name: cache, emptyDir: {} }
+        - { name: tmp, emptyDir: {} }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: search
+  labels: {{- include "mcp.labels" . | nindent 4 }}
+spec:
+  selector: { app.kubernetes.io/name: search }
+  ports: [{ name: http, port: 3000, targetPort: http }]
+{{- end }}

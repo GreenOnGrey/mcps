@@ -1,0 +1,157 @@
+{{- if .Values.docgen.enabled }}
+# Документы (FTR.NAB.CHAT-0003 tech §2, §3, §9.3): docgen — MCP-сервер на Python,
+# doc-convert — Gotenberg (LibreOffice и Chromium без сети, новый процесс на
+# каждую конвертацию) и сайдкар legacy (DOC/XLS/PPT → OOXML на том же
+# LibreOffice). Ключ docgen проверяет сам сервер; у Gotenberg и legacy —
+# базовая аутентификация из секрета mcp-doc-convert-auth.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: docgen
+  labels: {{- include "mcp.labels" . | nindent 4 }}
+    app.kubernetes.io/name: docgen
+spec:
+  replicas: 1
+  selector: { matchLabels: { app.kubernetes.io/name: docgen } }
+  template:
+    metadata:
+      labels: {{- include "mcp.labels" . | nindent 8 }}
+        app.kubernetes.io/name: docgen
+      # метрики docgen_* (дашборд «MCP-серверы», раздел «Документы»)
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+    spec:
+      {{- include "mcp.podSecurity" . | nindent 6 }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: docgen
+          image: {{ .Values.docgen.image }}
+          ports: [{ name: http, containerPort: 8000 }]
+          env:
+            - { name: DOCGEN_KEY, valueFrom: { secretKeyRef: { name: mcp-docgen-key, key: key } } }
+            - { name: DOCGEN_S3_HOSTS, value: {{ printf "s3.%s.svc:%v" .Values.s3.namespace (index .Values.s3.ports 0) | quote }} }
+            - { name: DOC_CONVERT_URL, value: "http://doc-convert:3000" }
+            - { name: DOC_CONVERT_LEGACY_URL, value: "http://doc-convert:3001" }
+            - { name: DOC_CONVERT_USER, valueFrom: { secretKeyRef: { name: mcp-doc-convert-auth, key: username } } }
+            - { name: DOC_CONVERT_PASSWORD, valueFrom: { secretKeyRef: { name: mcp-doc-convert-auth, key: password } } }
+            - { name: DOCGEN_MAX_INLINE_MB, value: {{ .Values.docgen.limits.inlineMB | quote }} }
+            - { name: DOCGEN_MAX_SOURCE_MB, value: {{ .Values.docgen.limits.sourceMB | quote }} }
+            - { name: DOCGEN_MAX_RESULT_MB, value: {{ .Values.docgen.limits.resultMB | quote }} }
+            - { name: DOCGEN_TIMEOUT_SECONDS, value: {{ .Values.docgen.limits.timeoutSeconds | quote }} }
+            - { name: DOCGEN_MAX_PAGES, value: {{ .Values.docgen.limits.maxPages | quote }} }
+          readinessProbe: { httpGet: { path: /healthz, port: http }, periodSeconds: 10 }
+          livenessProbe: { httpGet: { path: /healthz, port: http }, periodSeconds: 30, timeoutSeconds: 5 }
+          resources: {{- toYaml .Values.docgen.resources | nindent 12 }}
+          {{- include "mcp.containerSecurity" . | nindent 10 }}
+          volumeMounts: [{ name: tmp, mountPath: /tmp }]
+      volumes:
+        - { name: tmp, emptyDir: { sizeLimit: 1Gi } }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: docgen
+  labels: {{- include "mcp.labels" . | nindent 4 }}
+spec:
+  selector: { app.kubernetes.io/name: docgen }
+  ports: [{ name: http, port: 8000, targetPort: http }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: doc-convert
+  labels: {{- include "mcp.labels" . | nindent 4 }}
+    app.kubernetes.io/name: doc-convert
+spec:
+  replicas: 1
+  selector: { matchLabels: { app.kubernetes.io/name: doc-convert } }
+  template:
+    metadata:
+      labels: {{- include "mcp.labels" . | nindent 8 }}
+        app.kubernetes.io/name: doc-convert
+      # Метрики Gotenberg не собираются: базовая аутентификация закрывает и
+      # /prometheus/metrics, без пароля открыт только /health (FTR.NAB.CHAT-0003, решение 30).
+    spec:
+      {{- include "mcp.podSecurity" . | nindent 6 }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: gotenberg
+          image: {{ .Values.docConvert.image }}
+          args:
+            - gotenberg
+            - --api-port=3000
+            - --api-timeout=120s
+            - --api-enable-basic-auth
+            - --api-disable-health-check-logging
+            - --api-disable-download-from
+            - --webhook-disable
+            - --libreoffice-restart-after=1
+            - --libreoffice-max-queue-size={{ .Values.docConvert.queue }}
+            - --libreoffice-auto-start=false
+            - --libreoffice-deny-private-ips
+            - --libreoffice-deny-public-ips
+            - --chromium-restart-after=1
+            - --chromium-max-queue-size={{ .Values.docConvert.queue }}
+            - --chromium-allow-list=^file:///tmp/.*
+            - --chromium-deny-list=^(?!file:///tmp/).*
+            - --chromium-deny-private-ips
+            - --chromium-deny-public-ips
+            - --chromium-disable-javascript=false
+            - --chromium-ignore-certificate-errors=false
+            - --log-level=info
+          ports: [{ name: http, containerPort: 3000 }]
+          env:
+            - { name: GOTENBERG_API_BASIC_AUTH_USERNAME, valueFrom: { secretKeyRef: { name: mcp-doc-convert-auth, key: username } } }
+            - { name: GOTENBERG_API_BASIC_AUTH_PASSWORD, valueFrom: { secretKeyRef: { name: mcp-doc-convert-auth, key: password } } }
+          readinessProbe: { httpGet: { path: /health, port: http }, periodSeconds: 10, timeoutSeconds: 5 }
+          startupProbe: { httpGet: { path: /health, port: http }, periodSeconds: 5, failureThreshold: 60 }
+          livenessProbe: { httpGet: { path: /health, port: http }, periodSeconds: 30, timeoutSeconds: 10 }
+          resources: {{- toYaml .Values.docConvert.resources | nindent 12 }}
+          # Gotenberg задаёт пользователя именем (gotenberg): runAsNonRoot проверяет
+          # только числовой UID — 1001 из образа Gotenberg
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1001
+            runAsGroup: 1001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts: [{ name: tmp, mountPath: /tmp }, { name: home, mountPath: /home/gotenberg }]
+        - name: legacy
+          image: {{ .Values.docConvert.image }}
+          command: [python3, /opt/doc-convert/legacy.py]
+          ports: [{ name: legacy, containerPort: 3001 }]
+          env:
+            - { name: HOME, value: /tmp }
+            - { name: GOTENBERG_API_BASIC_AUTH_USERNAME, valueFrom: { secretKeyRef: { name: mcp-doc-convert-auth, key: username } } }
+            - { name: GOTENBERG_API_BASIC_AUTH_PASSWORD, valueFrom: { secretKeyRef: { name: mcp-doc-convert-auth, key: password } } }
+          readinessProbe: { httpGet: { path: /healthz, port: legacy }, periodSeconds: 10 }
+          resources: {{- toYaml .Values.docConvert.legacy.resources | nindent 12 }}
+          # тот же пользователь Gotenberg
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1001
+            runAsGroup: 1001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+          volumeMounts: [{ name: legacy-tmp, mountPath: /tmp }]
+      volumes:
+        - { name: tmp, emptyDir: { sizeLimit: 2Gi } }
+        - { name: home, emptyDir: { sizeLimit: 256Mi } }
+        - { name: legacy-tmp, emptyDir: { sizeLimit: 1Gi } }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: doc-convert
+  labels: {{- include "mcp.labels" . | nindent 4 }}
+spec:
+  selector: { app.kubernetes.io/name: doc-convert }
+  ports: [{ name: http, port: 3000, targetPort: http }, { name: legacy, port: 3001, targetPort: legacy }]
+{{- end }}

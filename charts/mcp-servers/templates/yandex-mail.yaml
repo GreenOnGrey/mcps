@@ -1,0 +1,52 @@
+{{- if .Values.yandexMail.enabled }}
+# Яндекс Почта только для чтения (FTR.NAB.CMN-0006 R20–R22): собственный сервер
+# imap-mcp. Токен Яндекса пользователя приходит в каждом запросе от прокси Nabu,
+# вход в IMAP — XOAUTH2 с областью mail:imap_ro; сервер ничего не хранит.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: yandex-mail
+  labels: {{- include "mcp.labels" . | nindent 4 }}
+    app.kubernetes.io/name: yandex-mail
+spec:
+  replicas: 1
+  selector: { matchLabels: { app.kubernetes.io/name: yandex-mail } }
+  template:
+    metadata:
+      labels: {{- include "mcp.labels" . | nindent 8 }}
+        app.kubernetes.io/name: yandex-mail
+    spec:
+      {{- include "mcp.podSecurity" . | nindent 6 }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: yandex-mail
+          image: {{ .Values.yandexMail.image }}
+          ports: [{ name: http, containerPort: 8000 }]
+          env:
+            - { name: IMAP_HOST, value: {{ .Values.yandexMail.imapHost | quote }} }
+            - { name: IMAP_PORT, value: "993" }
+            - { name: USERINFO_URL, value: "https://login.yandex.ru/info?format=json" }
+            - { name: USERINFO_AUTH, value: OAuth }
+            - { name: USERINFO_FIELD, value: default_email }
+            # ссылка на письмо в заметках памяти коммуникаций (FTR.NAB.CMN-0003 R6)
+            - { name: WEB_LINK, value: {{ .Values.yandexMail.webLink | quote }} }
+            - { name: PORT, value: "8000" }
+          readinessProbe: { httpGet: { path: /healthz, port: http }, periodSeconds: 10 }
+          livenessProbe: { httpGet: { path: /healthz, port: http }, periodSeconds: 30 }
+          resources: {{- toYaml .Values.yandexMail.resources | nindent 12 }}
+          {{- include "mcp.containerSecurity" . | nindent 10 }}
+          volumeMounts: [{ name: tmp, mountPath: /tmp }]
+      volumes:
+        - { name: tmp, emptyDir: {} }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: yandex-mail
+  labels: {{- include "mcp.labels" . | nindent 4 }}
+spec:
+  selector: { app.kubernetes.io/name: yandex-mail }
+  ports: [{ name: http, port: 8000, targetPort: http }]
+{{- end }}

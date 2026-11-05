@@ -1,0 +1,19 @@
+# Сайдкар docling-mcp (FTR.NAB.CMN-0006 arch §7.2): пропускает запрос с ключом.
+# Ключ — без map: строка «Bearer <64 hex>» длиннее корзины хеша map (64) по умолчанию.
+server {
+  listen 8080;
+  # Журнал запросов — чтобы видеть отказы 401; формат по умолчанию без заголовков
+  # запроса, ключ в журнал не попадает.
+  access_log /dev/stdout;
+  location = /healthz { access_log off; return 200 "ok\n"; }
+  location / {
+    if ($http_authorization != "Bearer ${MCP_KEY}") { return 401; }
+    proxy_pass http://127.0.0.1:8000;
+    proxy_http_version 1.1;
+    proxy_set_header Host 127.0.0.1:8000;
+    proxy_set_header Authorization "";
+    proxy_buffering off;
+    proxy_read_timeout 600s;
+    client_max_body_size 8m;
+  }
+}

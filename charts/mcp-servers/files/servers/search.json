@@ -1,0 +1,19 @@
+{
+  "name": "search",
+  "valuesKey": "search",
+  "service": "search:3000",
+  "deployments": [
+    "search"
+  ],
+  "secrets": [
+    "mcp-search-key",
+    "mcp-searxng-secret"
+  ],
+  "keySecret": "mcp-search-key",
+  "wantTools": [
+    "searxng_web_search",
+    "web_url_read"
+  ],
+  "oauth": null,
+  "catalogHint": null
+}

@@ -1,0 +1,47 @@
+# Релиз по тегу vX.Y.Z: образы (опубликованный тег не пересобирается), затем чарт
+# oci://ghcr.io/<организация>/charts/mcp-servers с версией X.Y.Z. На машины ничего не
+# выкатывается: версию чарта закрепляет MCP_CHART_VERSION в config/versions.env репозитория installer.
+name: release
+on:
+  push:
+    tags: ["v*.*.*"]
+concurrency: { group: release, cancel-in-progress: false }
+permissions: { contents: read, packages: write }
+
+jobs:
+  images:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: build, test, scan, push
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: images/publish.sh "ghcr.io/${GITHUB_REPOSITORY_OWNER,,}"
+
+  chart:
+    needs: images
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Helm
+        run: |
+          set -a; source config/versions.env; set +a
+          curl -fsSL "https://get.helm.sh/helm-$HELM_VERSION-linux-amd64.tar.gz" -o /tmp/helm.tgz
+          echo "$HELM_SHA256  /tmp/helm.tgz" | sha256sum -c -
+          tar -xzf /tmp/helm.tgz -C /tmp && sudo install /tmp/linux-amd64/helm /usr/local/bin/helm
+      - name: lint, package, push
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          version=${TAG#v}
+          repo="oci://ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/charts"
+          printf '%s' "$GH_TOKEN" | helm registry login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          if helm show chart "$repo/mcp-servers" --version "$version" >/dev/null 2>&1; then
+            echo "- $repo/mcp-servers:$version — уже опубликован" >>"$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          helm lint charts/mcp-servers
+          helm package charts/mcp-servers --version "$version" --app-version "$version" -d dist
+          helm push "dist/mcp-servers-$version.tgz" "$repo"
+          echo "- $repo/mcp-servers:$version" >>"$GITHUB_STEP_SUMMARY"

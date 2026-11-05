@@ -1,0 +1,124 @@
+{{- if .Values.docling.enabled }}
+# Разбор документов (FTR.NAB.CMN-0006 R8, R9; tech §2.5): docling-serve делает
+# разбор, docling-mcp в удалённом режиме — MCP поверх него. У docling-mcp нет
+# аутентификации: перед ним сайдкар nginx проверяет ключ (arch §7.2).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: docling-serve
+  labels: {{- include "mcp.labels" . | nindent 4 }}
+    app.kubernetes.io/name: docling-serve
+spec:
+  replicas: 1
+  selector: { matchLabels: { app.kubernetes.io/name: docling-serve } }
+  template:
+    metadata:
+      labels: {{- include "mcp.labels" . | nindent 8 }}
+        app.kubernetes.io/name: docling-serve
+    spec:
+      {{- include "mcp.podSecurity" . | nindent 6 }}
+      containers:
+        - name: docling-serve
+          image: {{ .Values.docling.serve.image }}
+          ports: [{ name: http, containerPort: 5001 }]
+          env:
+            - { name: DOCLING_SERVE_API_KEY, valueFrom: { secretKeyRef: { name: mcp-docling-serve-key, key: key } } }
+            - { name: DOCLING_SERVE_ENABLE_UI, value: "false" }
+            - { name: DOCLING_SERVE_MAX_FILE_SIZE, value: {{ mul .Values.docling.serve.maxFileMB 1048576 | quote }} }
+            - { name: DOCLING_SERVE_MAX_DOCUMENT_TIMEOUT, value: "300" }
+            - { name: DOCLING_SERVE_ENG_LOC_NUM_WORKERS, value: "1" }
+          readinessProbe: { httpGet: { path: /health, port: http }, periodSeconds: 10, timeoutSeconds: 5 }
+          startupProbe: { httpGet: { path: /health, port: http }, periodSeconds: 10, failureThreshold: 60 }
+          livenessProbe: { httpGet: { path: /health, port: http }, periodSeconds: 30, timeoutSeconds: 10 }
+          resources: {{- toYaml .Values.docling.serve.resources | nindent 12 }}
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+            # EasyOCR дозагружает модели языков (ru) в домашний каталог при первом скане.
+            readOnlyRootFilesystem: false
+            capabilities: { drop: [ALL] }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: docling-serve
+  labels: {{- include "mcp.labels" . | nindent 4 }}
+spec:
+  selector: { app.kubernetes.io/name: docling-serve }
+  ports: [{ name: http, port: 5001, targetPort: http }]
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: docling-mcp-auth
+  labels: {{- include "mcp.labels" . | nindent 4 }}
+data:
+  # Шаблон nginx — files/auth.conf.template (его же берёт тест образа docling-mcp):
+  # ключ подставляется из окружения при старте (envsubst образа), в ConfigMap и
+  # образе его нет.
+  default.conf.template: |
+{{ .Files.Get "files/auth.conf.template" | indent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: docling-mcp
+  labels: {{- include "mcp.labels" . | nindent 4 }}
+    app.kubernetes.io/name: docling-mcp
+spec:
+  replicas: 1
+  selector: { matchLabels: { app.kubernetes.io/name: docling-mcp } }
+  template:
+    metadata:
+      labels: {{- include "mcp.labels" . | nindent 8 }}
+        app.kubernetes.io/name: docling-mcp
+      annotations:
+        # шаблон смонтирован через subPath: изменение конфигурации перезапускает под
+        checksum/auth: {{ .Files.Get "files/auth.conf.template" | sha256sum | trunc 16 }}
+    spec:
+      {{- include "mcp.podSecurity" . | nindent 6 }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: docling-mcp
+          image: {{ .Values.docling.mcp.image }}
+          args: ["--transport", "streamable-http", "--host", "127.0.0.1", "--port", "8000", "conversion", "generation", "manipulation"]
+          env:
+            - { name: DOCLING_MCP_CONVERSION_MODE, value: remote }
+            - { name: DOCLING_MCP_SERVICE_URL, value: "http://docling-serve:5001" }
+            - { name: DOCLING_MCP_SERVICE_API_KEY, valueFrom: { secretKeyRef: { name: mcp-docling-serve-key, key: key } } }
+            - { name: DOCLING_MCP_FALLBACK_TO_LOCAL, value: "false" }
+            - { name: DOCLING_MCP_OCR_LANG, value: {{ .Values.docling.mcp.ocrLang | quote }} }
+            - { name: HOME, value: /tmp }
+          resources: {{- toYaml .Values.docling.mcp.resources | nindent 12 }}
+          {{- include "mcp.containerSecurity" . | nindent 10 }}
+          volumeMounts: [{ name: tmp, mountPath: /tmp }]
+        - name: auth
+          image: {{ .Values.docling.auth.image }}
+          ports: [{ name: http, containerPort: 8080 }]
+          env:
+            - { name: MCP_KEY, valueFrom: { secretKeyRef: { name: mcp-docling-key, key: key } } }
+            - { name: NGINX_ENVSUBST_FILTER, value: "^MCP_KEY$" }
+          readinessProbe: { httpGet: { path: /healthz, port: http }, periodSeconds: 10 }
+          resources: {{- toYaml .Values.docling.auth.resources | nindent 12 }}
+          {{- include "mcp.containerSecurity" . | nindent 10 }}
+          volumeMounts:
+            # subPath: в каталоге ConfigMap есть служебные ..data и ..<время>, envsubst образа обходил бы и их
+            - { name: auth-template, mountPath: /etc/nginx/templates/default.conf.template, subPath: default.conf.template }
+            - { name: nginx-conf, mountPath: /etc/nginx/conf.d }
+            - { name: tmp, mountPath: /tmp }
+      volumes:
+        - { name: tmp, emptyDir: {} }
+        - { name: nginx-conf, emptyDir: {} }
+        - { name: auth-template, configMap: { name: docling-mcp-auth } }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: docling-mcp
+  labels: {{- include "mcp.labels" . | nindent 4 }}
+spec:
+  selector: { app.kubernetes.io/name: docling-mcp }
+  ports: [{ name: http, port: 8080, targetPort: http }]
+{{- end }}
