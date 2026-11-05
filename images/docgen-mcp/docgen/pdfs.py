@@ -1,4 +1,4 @@
-"""pdf_tools: склеить, разрезать, повернуть, извлечь страницы (FTR.NAB.CHAT-0003 R9)."""
+"""pdf_tools: merge, split, rotate, extract pages (FTR.NAB.CHAT-0003 R9)."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from .errors import DocError
 
 
 def ranges(spec: str, pages: int) -> list[list[int]]:
-    """«1-3,5» → [[0,1,2],[4]] (номера с единицы)."""
+    """"1-3,5" → [[0,1,2],[4]] (numbers from one)."""
     out = []
     for part in (spec or "").split(","):
         part = part.strip()
@@ -32,7 +32,7 @@ def ranges(spec: str, pages: int) -> list[list[int]]:
 
 
 def run(op: str, sources: list[str], pages: str, angle: int) -> tuple[bytes, str, int]:
-    """Возвращает содержимое, расширение результата (pdf или zip) и число страниц."""
+    """Returns the contents, the extension of the result (pdf or zip) and the page count."""
     if not sources:
         raise DocError("sources is a non-empty list.")
     readers = [PdfReader(s) for s in sources]

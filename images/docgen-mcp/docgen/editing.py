@@ -1,4 +1,4 @@
-"""edit_document: типовые правки DOCX, PPTX и XLSX (FTR.NAB.CHAT-0003 R5)."""
+"""edit_document: typical edits of DOCX, PPTX and XLSX (FTR.NAB.CHAT-0003 R5)."""
 
 from __future__ import annotations
 
@@ -11,9 +11,9 @@ from .errors import DocError
 
 
 def replace_in_runs(runs, find: str, replace: str, all_: bool) -> int:
-    """Заменяет текст абзаца, разбитого на фрагменты форматирования: замена
-    получает форматирование фрагмента, где начиналось совпадение, затронутые
-    следующие фрагменты укорачиваются, остальные не меняются."""
+    """Replaces text of a paragraph split into formatting runs: the replacement
+    gets the formatting of the run where the match started, the affected
+    next runs get shorter, and others do not change."""
     if not find:
         return 0
     count, search_from = 0, 0
@@ -70,7 +70,7 @@ def _pptx_paragraphs(prs):
 
 
 def edit(source: str, ops: list, out: str) -> dict:
-    """Применяет операции по порядку; возвращает, сколько замен и строк сделано."""
+    """Applies operations in order; returns how many replacements and rows were made."""
     if not isinstance(ops, list) or not ops:
         raise DocError("ops is a non-empty list.")
     ext = source.lower().rsplit(".", 1)[-1]

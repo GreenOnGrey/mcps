@@ -1,4 +1,4 @@
-"""render_document: Markdown с параметрами → DOCX, PPTX и PDF
+"""render_document: Markdown with parameters → DOCX, PPTX and PDF
 (FTR.NAB.CHAT-0003 R1, R4, tech §2.3)."""
 
 from __future__ import annotations
@@ -26,15 +26,15 @@ SIZES = {"A4": (210, 297), "A5": (148, 210), "LETTER": (215.9, 279.4)}
 FROM = "markdown+pipe_tables+footnotes+fenced_divs+raw_html+raw_attribute+implicit_figures"
 
 
-# Подстановка оболочки вместо текста: агент написал $(cat file.md) в аргумент
-# инструмента, а не в команду bash, — документ вышел бы из одной этой строки
-# (FTR.NAB.CHAT-0003 tech, решение 31). Весь текст — одно выражение: Markdown,
-# который лишь начинается с `кода` или $формулы$, проходит.
+# A shell substitution instead of text: the agent wrote $(cat file.md) in an argument
+# of a tool, not in a bash command, and the document would be this one line
+# (FTR.NAB.CHAT-0003 tech, decision 31). The whole text must be one expression: Markdown
+# that only starts with `code` or $formula$ passes.
 SHELL_EXPR = re.compile(r"\$\([^\n]*\)|`[^`\n]+`|\$\{?[A-Za-z_]\w*\}?")
 
 
 def inline(markdown: str) -> str:
-    """Markdown из аргумента: не больше MAX_INLINE (R12) и не выражение оболочки."""
+    """Markdown from an argument: at most MAX_INLINE (R12) and not a shell expression."""
     limits.check_inline("markdown", markdown)
     if SHELL_EXPR.fullmatch(markdown.strip()):
         raise DocError("markdown is a shell expression, not the text: the tool does not run the shell. "
@@ -43,7 +43,7 @@ def inline(markdown: str) -> str:
 
 
 def read_source(path: str) -> str:
-    """Markdown из файла пространства; размер уже проверил fetch (MAX_SOURCE)."""
+    """Markdown from a workspace file; fetch has already checked the size (MAX_SOURCE)."""
     with open(path, "rb") as f:
         data = f.read()
     try:
@@ -53,7 +53,7 @@ def read_source(path: str) -> str:
 
 
 def split_options(markdown: str) -> tuple[dict, str]:
-    """Блок параметров YAML в начале Markdown (--- … ---) и текст после него."""
+    """The YAML block of parameters at the start of Markdown (--- … ---) and the text after it."""
     m = re.match(r"\A---\s*\n(.*?)\n---\s*\n", markdown, re.S)
     if not m:
         return {}, markdown
@@ -82,7 +82,7 @@ def page_mm(opts: dict) -> tuple[float, float, dict]:
     w, h = SIZES[str(page.get("size", "A4")).upper()]
     if page.get("orientation") == "landscape":
         w, h = h, w
-    margins = {"top": 20, "right": 15, "bottom": 20, "left": 30}  # ГОСТ Р 7.0.97
+    margins = {"top": 20, "right": 15, "bottom": 20, "left": 30}  # GOST R 7.0.97
     m = page.get("margins")
     if isinstance(m, dict):
         for k in margins:
@@ -122,7 +122,7 @@ def reference(kind: str, given: str | None) -> str:
 
 
 def render(workdir: str, markdown: str, fmt: str, reference_path: str | None) -> tuple[str, list[str]]:
-    """Собирает документ; возвращает путь к файлу и предупреждения."""
+    """Builds a document; returns the file path and warnings."""
     opts, md = split_options(markdown)
     warnings: list[str] = []
     out = os.path.join(workdir, "result." + fmt)
@@ -162,7 +162,7 @@ def render(workdir: str, markdown: str, fmt: str, reference_path: str | None) ->
 
 
 def running(text: str) -> bytes:
-    """Колонтитул Chromium: {page} и {pages} — номер страницы и число страниц."""
+    """A header or footer of Chromium: {page} and {pages} are the page number and the page count."""
     import html
     body = html.escape(text).replace("{page}", '<span class="pageNumber"></span>').replace("{pages}", '<span class="totalPages"></span>')
     return ('<html><head><style>body{font-family:"PT Sans",sans-serif;font-size:8pt;color:#666;'
@@ -170,11 +170,11 @@ def running(text: str) -> bytes:
 
 
 def layout_docx(path: str, opts: dict, own: bool = True) -> None:
-    """Размер, ориентация и поля страницы, колонтитулы с номером страницы.
+    """Size, orientation and margins of a page, headers and footers with the page number.
 
-    own — документ на своём образце: страница по умолчанию (A4, поля ГОСТ) и
-    номер страницы внизу. На образце пользователя (R4) его страница и
-    колонтитулы остаются, меняется только то, что задано в параметрах явно.
+    own: a document on our own sample: the default page (A4, GOST margins) and
+    the page number at the bottom. On a sample of the user (R4) its page and
+    headers and footers stay, and only what the parameters set explicitly changes.
     """
     w, h, m = page_mm(opts)
     page = opts.get("page") or {}
@@ -194,7 +194,7 @@ def layout_docx(path: str, opts: dict, own: bool = True) -> None:
 
 
 def field_text(paragraph, text: str) -> None:
-    """Текст абзаца, где {page} и {pages} — поля PAGE и NUMPAGES."""
+    """The text of a paragraph where {page} and {pages} are the fields PAGE and NUMPAGES."""
     paragraph.alignment = 1
     for part in re.split(r"(\{page\}|\{pages\})", text):
         if part in ("{page}", "{pages}"):

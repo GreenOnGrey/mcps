@@ -1,4 +1,4 @@
-# Зависимости docgen (FTR.NAB.CHAT-0003); requirements.txt с хэшами —
+# Dependencies of docgen (FTR.NAB.CHAT-0003); requirements.txt with hashes comes from
 # uv pip compile --generate-hashes --python-version 3.12 requirements.in -o requirements.txt
 mcp==2.3.0
 uvicorn==0.54.0

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Профиль LibreOffice сайдкара legacy (FTR.NAB.CHAT-0003 R18, R20): макросы
-     документов не выполняются, внешние ссылки не обновляются. -->
+<!-- The profile of LibreOffice of the sidecar legacy (FTR.NAB.CHAT-0003 R18, R20): macros
+     of documents do not run, and external links are not updated. -->
 <oor:items xmlns:oor="http://openoffice.org/2001/registry" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 <item oor:path="/org.openoffice.Office.Common/Security/Scripting"><prop oor:name="MacroSecurityLevel" oor:op="fuse"><value>3</value></prop></item>
 <item oor:path="/org.openoffice.Office.Common/Security/Scripting"><prop oor:name="DisableMacrosExecution" oor:op="fuse"><value>true</value></prop></item>

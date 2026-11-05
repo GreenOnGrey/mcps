@@ -1,4 +1,4 @@
-"""convert: офисные форматы, HTML и ZIP → PDF; DOC/XLS/PPT → OOXML
+"""convert: office formats, HTML and ZIP → PDF; DOC/XLS/PPT → OOXML
 (FTR.NAB.CHAT-0003 R7, R8, tech §2.3, §2.4)."""
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ from .errors import DocError
 OFFICE = {"docx", "doc", "docm", "odt", "rtf", "xlsx", "xls", "xlsm", "ods", "pptx", "ppt", "pptm", "odp"}
 LEGACY = {("doc", "docx"), ("xls", "xlsx"), ("ppt", "pptx"), ("odt", "docx"), ("ods", "xlsx"), ("odp", "pptx"), ("rtf", "docx")}
 PAPER = {"A4": (8.27, 11.69), "A5": (5.83, 8.27), "LETTER": (8.5, 11)}
-# файлы сайта, в которых ссылки на другие его файлы переписываются (R8)
+# files of a site in which links to its other files are rewritten (R8)
 LINKING = {"html", "htm", "css", "js", "mjs", "svg"}
 
 
@@ -41,11 +41,11 @@ def convert(source: str, to: str, options: dict, workdir: str) -> tuple[bytes, l
 
 
 def chromium(options: dict, page: bytes = b"") -> dict:
-    """Параметры Chromium: формат из CSS @page, если агент не задал своего.
+    """Parameters of Chromium: the format from CSS @page unless the agent set its own.
 
-    Gotenberg ждёт waitForExpression без запасного выхода — до своего таймаута.
-    Поэтому window.status = 'ready' ждём, только если страница (или её скрипты)
-    его выставляет; иначе — короткая пауза на отрисовку скриптов.
+    Gotenberg waits for waitForExpression with no way out, until its timeout.
+    So we wait for window.status = 'ready' only if the page (or its scripts)
+    sets it; otherwise a short pause for scripts to render.
     """
     out = {"printBackground": bool(options.get("printBackground", True)), "skipNetworkIdleEvent": True}
     if options.get("waitForReady", b"window.status" in page):
@@ -66,8 +66,8 @@ def chromium(options: dict, page: bytes = b"") -> dict:
 
 
 def unpack(path: str, dest: str) -> tuple[bytes, list[tuple[str, bytes]]]:
-    """Распаковывает сайт из архива с проверками (tech §2.4); Gotenberg
-    принимает файлы одним каталогом, поэтому ресурсы — по их именам."""
+    """Unpacks a site from an archive with checks (tech §2.4); Gotenberg
+    takes files as one directory, so resources go by their names."""
     try:
         zf = zipfile.ZipFile(path)
     except zipfile.BadZipFile:
@@ -117,9 +117,9 @@ def unpack(path: str, dest: str) -> tuple[bytes, list[tuple[str, bytes]]]:
 
 
 def relink(data: bytes, folder: str, moved: list[tuple[str, str]]) -> bytes:
-    """Ссылки файла сайта из папки folder на перенесённые файлы: img/logo.png
-    в index.html и ../img/logo.png в css/style.css становятся logo.png —
-    файлы запроса Gotenberg лежат в одной папке."""
+    """Links of a site file from the folder to moved files: img/logo.png
+    in index.html and ../img/logo.png in css/style.css become logo.png, as
+    the files of a request to Gotenberg lie in one folder."""
     for rel, base in sorted(moved, key=lambda m: -len(m[0])):
         link = posixpath.relpath(rel, folder or ".").encode()
         for q in (b'"', b"'", b"("):

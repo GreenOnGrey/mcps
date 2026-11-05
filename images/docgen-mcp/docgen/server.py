@@ -1,10 +1,10 @@
-"""docgen — MCP-сервер документов (FTR.NAB.CHAT-0003 R1–R9, R12, R19–R21).
+"""docgen: the MCP server of documents (FTR.NAB.CHAT-0003 R1–R9, R12, R19–R21).
 
-Инструменты создают, заполняют, правят и конвертируют документы. Файлы
-приходят ссылками прокси Nabu (с путём в пространстве во фрагменте), результат
-уходит PUT по ссылке dest; прокси переносит его в пространство агента.
-Каждый вызов работает в своём временном каталоге, который удаляется после
-вызова; содержимое документов в журнал не пишется.
+The tools create, fill, edit and convert documents. Files
+come as links of the Nabu proxy (with the path in the workspace in the fragment), and the result
+goes with PUT by the link dest; the proxy moves it to the workspace of the agent.
+Each call works in a temporary directory of its own, deleted after
+the call; contents of documents are not logged.
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ from . import converting, documents, editing, fetch, limits, pdfs, sheets, templ
 from .errors import DocError
 
 log = logging.getLogger("docgen")
-# Инструменты пишут только файл результата, во внешний мир не ходят (R25).
+# The tools write only the result file and do not go to the outside world (R25).
 WRITE = ToolAnnotations(readOnlyHint=False, destructiveHint=False, idempotentHint=False, openWorldHint=False)
 
 OPERATIONS = Counter("docgen_operations_total", "Operations of docgen by tool and result.", ["tool", "result"])
@@ -48,7 +48,7 @@ mcp = MCPServer(
 
 
 def _run(tool: str, fmt: str, fn):
-    """Выполняет работу в своём каталоге с лимитом времени; ошибки — агенту."""
+    """Does the work in a directory of its own with a time limit; errors go to the agent."""
 
     def work():
         os.makedirs(limits.WORK_DIR, exist_ok=True)
@@ -73,7 +73,7 @@ def _run(tool: str, fmt: str, fn):
         except ToolError:
             OPERATIONS.labels(tool, "error").inc()
             raise
-        except Exception as e:  # ошибка разбора файла и т. п.: причина без содержимого
+        except Exception as e:  # an error parsing a file and so on: the reason without contents
             OPERATIONS.labels(tool, "error").inc()
             log.warning("docgen: %s %s: %s", tool, fmt, type(e).__name__)
             raise ToolError(f"The document could not be processed: {type(e).__name__}: {str(e)[:200]}") from None
@@ -87,7 +87,7 @@ def _run(tool: str, fmt: str, fn):
 
 
 def _finish(path: str, dest: str, fmt: str, warnings=None, extra=None) -> dict:
-    """Проверяет страницы PDF и выгружает результат."""
+    """Checks the pages of a PDF and uploads the result."""
     info = {"format": fmt}
     if fmt == "pdf":
         pages = len(PdfReader(path).pages)
@@ -109,24 +109,24 @@ def _get(url: str, workdir: str) -> str:
 
 
 def _markdown(source: str, markdown: str, workdir: str) -> str:
-    """Текст документа: файл пространства (source) или сам текст (markdown) — ровно одно из двух
-    (FTR.NAB.CHAT-0003 tech, решение 31)."""
+    """The text of a document: a workspace file (source) or the text itself (markdown), exactly one of them
+    (FTR.NAB.CHAT-0003 tech, decision 31)."""
     if not source and not markdown.strip():
         raise DocError("Give the Markdown in source (a .md file of the space) or in markdown (the text).")
     if source and markdown.strip():
         raise DocError("Give the Markdown in source or in markdown, not both.")
     if source:
         if "://" not in source:
-            # путь не превращён в ссылку: в позиции каталога нет файлового аргумента render_document.source
+            # the path did not become a link: the catalog item has no file argument render_document.source
             raise DocError("source is not enabled for this server in the catalog of Nabu: pass the text in markdown, "
                            "or ask the administrator to add render_document.source to the file arguments.")
         return documents.read_source(_get(source, workdir))
     return documents.inline(markdown)
 
 
-# ─── Инструменты ───────────────────────────────────────────────────
-# Docstring инструмента — его описание в tools/list для агента, поэтому по-английски,
-# как и тексты ошибок (tech §2.2); комментарии кода — по-русски.
+# ─── Tools ─────────────────────────────────────────────────────────
+# The docstring of a tool is its description in tools/list for the agent, like
+# the texts of errors (tech §2.2).
 
 @mcp.tool(annotations=WRITE)
 async def render_document(format: str, dest: str, source: str = "", markdown: str = "", reference: str = "",
@@ -251,7 +251,7 @@ async def _body(receive, limit: int = 1 << 20) -> bytes:
 
 
 async def xlsx_preview(receive, send):
-    """Листы книги для предпросмотра сайта (FTR.NAB.CHAT-0003 R14, tech §2.5)."""
+    """The sheets of a workbook for the preview of the site (FTR.NAB.CHAT-0003 R14, tech §2.5)."""
     try:
         req = json.loads(await _body(receive))
         url = str(req["url"])
@@ -277,7 +277,7 @@ async def xlsx_preview(receive, send):
 
 
 def with_auth(app):
-    """Ключ на всём, кроме /healthz и /metrics; внутренний предпросмотр таблиц."""
+    """The key on everything except /healthz and /metrics; the internal preview of tables."""
     key = limits.KEY.encode()
 
     async def wrapper(scope, receive, send):

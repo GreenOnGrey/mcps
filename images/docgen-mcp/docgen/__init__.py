@@ -1,2 +1,2 @@
-"""docgen — MCP-сервер документов (FTR.NAB.CHAT-0003): создание, правка и
-конвертация DOCX, XLSX, PPTX и PDF по описанию агента."""
+"""docgen: the MCP server of documents (FTR.NAB.CHAT-0003): creating, editing and
+converting DOCX, XLSX, PPTX and PDF as an agent describes."""

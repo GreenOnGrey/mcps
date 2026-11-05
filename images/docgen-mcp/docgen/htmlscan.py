@@ -1,5 +1,5 @@
-"""Внешние адреса страницы для предупреждений агенту (FTR.NAB.CHAT-0003 R8,
-tech §2.3). Блокирует их Chromium без сети; здесь — только понятный ответ."""
+"""External addresses of a page for warnings to the agent (FTR.NAB.CHAT-0003 R8,
+tech §2.3). Chromium without a network blocks them; here is only a clear answer."""
 
 from __future__ import annotations
 
