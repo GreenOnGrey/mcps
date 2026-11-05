@@ -1,65 +1,65 @@
-# Принятые находки сканирования doc-convert (images/publish.sh, FTR.NAB.CHAT-0003
-# tech, решение 26): бинарники gotenberg и pdfcpu из образа Gotenberg 8.38.1
-# собраны на Go 1.27.1 со старыми модулями. Пакеты Debian обновляет apt-get
-# upgrade при сборке, их здесь нет. После expired_at находка снова блокирует
-# выпуск: к этому сроку — исправленный Gotenberg или пересборка бинарников.
+# Accepted findings of the scan of doc-convert (images/publish.sh, FTR.NAB.CHAT-0003
+# tech, decision 26): the binaries gotenberg and pdfcpu from the image of Gotenberg 8.38.1
+# are built on Go 1.27.1 with old modules. apt-get upgrade updates Debian packages
+# at the build, so they are not here. After expired_at a finding blocks
+# a release again: by then, a fixed Gotenberg or a rebuild of the binaries.
 #
-# Почему это допустимо сейчас: у doc-convert нет исходящей сети (сетевые
-# политики, флаги --*-deny-private-ips/--*-deny-public-ips), вход — только от
-# docgen и api Nabu с базовой аутентификацией; Gotenberg не обслуживает
-# WebSocket, не ходит по TLS наружу и не использует SSH.
+# Why this is acceptable now: doc-convert has no outgoing network (network
+# policies, the flags --*-deny-private-ips/--*-deny-public-ips), ingress is only from
+# docgen and api of Nabu with basic authentication; Gotenberg does not serve
+# WebSocket, does not go outside over TLS and does not use SSH.
 
 vulnerabilities:
-  # labstack/echo/v5 5.4.0 → 5.4.1: обход доступа и удержание соединений при WebSocket
+  # labstack/echo/v5 5.4.0 → 5.4.1: an access bypass and held connections with WebSocket
   - id: GHSA-cxf3-9h37-7rr8
     paths: [usr/bin/gotenberg]
-    statement: Gotenberg не обслуживает WebSocket; вход только от docgen и api с базовой аутентификацией
+    statement: Gotenberg does not serve WebSocket; ingress only from docgen and api with basic authentication
     expired_at: 2027-01-31
   - id: GHSA-9969-6676-49h5
     paths: [usr/bin/gotenberg]
-    statement: Gotenberg не обслуживает WebSocket
+    statement: Gotenberg does not serve WebSocket
     expired_at: 2027-01-31
-  # те же находки под номерами CVE: Trivy сопоставляет по id, а не по алиасам
+  # the same findings under CVE numbers: Trivy matches by id, not by aliases
   - id: CVE-2026-118264
     paths: [usr/bin/gotenberg]
-    statement: GHSA-cxf3-9h37-7rr8; Gotenberg не обслуживает WebSocket; вход только от docgen и api с базовой аутентификацией
+    statement: GHSA-cxf3-9h37-7rr8; Gotenberg does not serve WebSocket; ingress only from docgen and api with basic authentication
     expired_at: 2027-01-31
   - id: CVE-2026-118262
     paths: [usr/bin/gotenberg]
-    statement: GHSA-9969-6676-49h5; Gotenberg не обслуживает WebSocket
+    statement: GHSA-9969-6676-49h5; Gotenberg does not serve WebSocket
     expired_at: 2027-01-31
-  # go-jose/v4 4.1.5 → 4.1.6: отказ в обслуживании при разборе JWK с ключами RSA
+  # go-jose/v4 4.1.5 → 4.1.6: a denial of service when parsing a JWK with RSA keys
   - id: CVE-2026-116587
     paths: [usr/bin/gotenberg]
-    statement: Вход только с базовой аутентификацией, JWT и JWK doc-convert не разбирает
+    statement: Ingress only with basic authentication, and doc-convert does not parse JWT and JWK
     expired_at: 2027-01-31
-  # стандартная библиотека Go 1.27.1 → 1.27.3 и golang.org/x/net 0.59 → 0.60
+  # the standard library of Go 1.27.1 → 1.27.3 and golang.org/x/net 0.59 → 0.60
   - id: CVE-2026-78669
     paths: [usr/bin/gotenberg, usr/bin/pdfcpu]
-    statement: Отказ в обслуживании через HTTP/2; клиенты — только docgen и api внутри кластера
+    statement: A denial of service through HTTP/2; clients are only docgen and api inside the cluster
     expired_at: 2027-01-31
   - id: CVE-2026-78667
     paths: [usr/bin/gotenberg, usr/bin/pdfcpu]
-    statement: Отказ в обслуживании через заголовок Range; клиенты — только docgen и api внутри кластера
+    statement: A denial of service through the header Range; clients are only docgen and api inside the cluster
     expired_at: 2027-01-31
   - id: CVE-2026-111943
     paths: [usr/bin/gotenberg, usr/bin/pdfcpu]
-    statement: Проверка цепочки x509 при исходящем TLS; у doc-convert нет исходящей сети
+    statement: A check of the x509 chain with outgoing TLS; doc-convert has no outgoing network
     expired_at: 2027-01-31
   - id: CVE-2026-97031
     paths: [usr/bin/gotenberg, usr/bin/pdfcpu]
-    statement: ECH в TLS; doc-convert принимает только HTTP внутри кластера и не ходит наружу
+    statement: ECH in TLS; doc-convert takes only HTTP inside the cluster and does not go outside
     expired_at: 2027-01-31
-  # модули pdfcpu 0.15.0
+  # the modules of pdfcpu 0.15.0
   - id: CVE-2026-56854
     paths: [usr/bin/pdfcpu]
-    statement: golang.org/x/crypto/ssh; pdfcpu не использует SSH
+    statement: golang.org/x/crypto/ssh; pdfcpu does not use SSH
     expired_at: 2027-01-31
   - id: CVE-2026-46603
     paths: [usr/bin/pdfcpu]
-    statement: Разбор WebP (vp8l); Gotenberg вызывает pdfcpu только для PDF, docgen задаёт лимиты размера
+    statement: Parsing WebP (vp8l); Gotenberg calls pdfcpu only for PDF, and docgen sets size limits
     expired_at: 2027-01-31
   - id: CVE-2026-56851
     paths: [usr/bin/pdfcpu]
-    statement: golang.org/x/text, профиль Nickname; отказ в обслуживании одного вызова в изолированном поде
+    statement: golang.org/x/text, the profile Nickname; a denial of service of one call in an isolated pod
     expired_at: 2027-01-31

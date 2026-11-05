@@ -1,9 +1,9 @@
 {{- if .Values.docgen.enabled }}
-# Документы (FTR.NAB.CHAT-0003 tech §2, §3, §9.3): docgen — MCP-сервер на Python,
-# doc-convert — Gotenberg (LibreOffice и Chromium без сети, новый процесс на
-# каждую конвертацию) и сайдкар legacy (DOC/XLS/PPT → OOXML на том же
-# LibreOffice). Ключ docgen проверяет сам сервер; у Gotenberg и legacy —
-# базовая аутентификация из секрета mcp-doc-convert-auth.
+# Documents (FTR.NAB.CHAT-0003 tech §2, §3, §9.3): docgen is an MCP server in Python,
+# doc-convert is Gotenberg (LibreOffice and Chromium without a network, a new process for
+# each conversion) with the sidecar legacy (DOC/XLS/PPT → OOXML on the same
+# LibreOffice). The server checks the key of docgen itself; Gotenberg and legacy have
+# basic authentication from the secret mcp-doc-convert-auth.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -17,7 +17,7 @@ spec:
     metadata:
       labels: {{- include "mcp.labels" . | nindent 8 }}
         app.kubernetes.io/name: docgen
-      # метрики docgen_* (дашборд «MCP-серверы», раздел «Документы»)
+      # the metrics docgen_* (the dashboard "MCP servers", the section "Documents")
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "8000"
@@ -72,8 +72,8 @@ spec:
     metadata:
       labels: {{- include "mcp.labels" . | nindent 8 }}
         app.kubernetes.io/name: doc-convert
-      # Метрики Gotenberg не собираются: базовая аутентификация закрывает и
-      # /prometheus/metrics, без пароля открыт только /health (FTR.NAB.CHAT-0003, решение 30).
+      # Metrics of Gotenberg are not collected: basic authentication also closes
+      # /prometheus/metrics, and only /health is open without a password (FTR.NAB.CHAT-0003, decision 30).
     spec:
       {{- include "mcp.podSecurity" . | nindent 6 }}
       {{- with .Values.imagePullSecrets }}
@@ -112,8 +112,8 @@ spec:
           startupProbe: { httpGet: { path: /health, port: http }, periodSeconds: 5, failureThreshold: 60 }
           livenessProbe: { httpGet: { path: /health, port: http }, periodSeconds: 30, timeoutSeconds: 10 }
           resources: {{- toYaml .Values.docConvert.resources | nindent 12 }}
-          # Gotenberg задаёт пользователя именем (gotenberg): runAsNonRoot проверяет
-          # только числовой UID — 1001 из образа Gotenberg
+          # Gotenberg sets the user by name (gotenberg), while runAsNonRoot checks
+          # only a numeric UID: 1001 from the image of Gotenberg
           securityContext:
             runAsNonRoot: true
             runAsUser: 1001
@@ -132,7 +132,7 @@ spec:
             - { name: GOTENBERG_API_BASIC_AUTH_PASSWORD, valueFrom: { secretKeyRef: { name: mcp-doc-convert-auth, key: password } } }
           readinessProbe: { httpGet: { path: /healthz, port: legacy }, periodSeconds: 10 }
           resources: {{- toYaml .Values.docConvert.legacy.resources | nindent 12 }}
-          # тот же пользователь Gotenberg
+          # the same user of Gotenberg
           securityContext:
             runAsNonRoot: true
             runAsUser: 1001

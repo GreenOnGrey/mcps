@@ -1,7 +1,7 @@
 {{- if .Values.yandexMail.enabled }}
-# Яндекс Почта только для чтения (FTR.NAB.CMN-0006 R20–R22): собственный сервер
-# imap-mcp. Токен Яндекса пользователя приходит в каждом запросе от прокси Nabu,
-# вход в IMAP — XOAUTH2 с областью mail:imap_ro; сервер ничего не хранит.
+# Read-only Yandex Mail (FTR.NAB.CMN-0006 R20–R22): our own server
+# imap-mcp. The Yandex token of the user comes in each request from the Nabu proxy,
+# IMAP sign-in is XOAUTH2 with the scope mail:imap_ro, and the server stores nothing.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -30,7 +30,7 @@ spec:
             - { name: USERINFO_URL, value: "https://login.yandex.ru/info?format=json" }
             - { name: USERINFO_AUTH, value: OAuth }
             - { name: USERINFO_FIELD, value: default_email }
-            # ссылка на письмо в заметках памяти коммуникаций (FTR.NAB.CMN-0003 R6)
+            # the link to a message in notes of the memory of communications (FTR.NAB.CMN-0003 R6)
             - { name: WEB_LINK, value: {{ .Values.yandexMail.webLink | quote }} }
             - { name: PORT, value: "8000" }
           readinessProbe: { httpGet: { path: /healthz, port: http }, periodSeconds: 10 }

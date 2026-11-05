@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Образы MCP-серверов без официальных образов (FTR.NAB.CMN-0006 tech §2.7):
-# сборка, тест образа (images/<образ>/test.sh), сканирование Trivy, публикация.
-#   images/publish.sh <реестр>      # релиз: ghcr.io/<организация>; токен — GH_TOKEN
-#   images/publish.sh --test-only   # CI: сборка и тесты без публикации
-# Тег образа — версия пакета из config/versions.env; опубликованный тег не пересобирается.
+# Images of MCP servers without official images (FTR.NAB.CMN-0006 tech §2.7):
+# a build, a test of the image (images/<image>/test.sh), a Trivy scan, publishing.
+#   images/publish.sh <registry>    # a release: ghcr.io/<organization>; the token is GH_TOKEN
+#   images/publish.sh --test-only   # CI: a build and tests without publishing
+# The tag of an image is the version of a package from config/versions.env; a published tag is not rebuilt.
 set -euo pipefail
 
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
@@ -12,23 +12,23 @@ set -a
 source "$ROOT/config/versions.env"
 set +a
 
-registry=${1:?реестр или --test-only}
+registry=${1:?a registry or --test-only}
 test_only=0
 [[ $registry == --test-only ]] && test_only=1 registry=local
 
 if ((!test_only)); then
-  printf '%s' "${GH_TOKEN:?нужен GH_TOKEN}" | docker login ghcr.io -u "${GITHUB_ACTOR:-greenongrey}" --password-stdin >/dev/null
+  printf '%s' "${GH_TOKEN:?GH_TOKEN is required}" | docker login ghcr.io -u "${GITHUB_ACTOR:-greenongrey}" --password-stdin >/dev/null
 fi
 
-# imap-mcp — собственный сервер: собирается из исходников каталога, версия — IMAP_MCP_VERSION.
-# doc-convert собирается до docgen-mcp: тест docgen-mcp идёт вместе с ним (FTR.NAB.CHAT-0003).
+# imap-mcp is our own server: it builds from the sources of its directory, the version is IMAP_MCP_VERSION.
+# doc-convert builds before docgen-mcp: the test of docgen-mcp runs together with it (FTR.NAB.CHAT-0003).
 declare -A VERSIONS=([docling-mcp]=$DOCLING_MCP_VERSION [imap-mcp]=$IMAP_MCP_VERSION [doc-convert]=$DOC_CONVERT_VERSION
   [docgen-mcp]=$DOCGEN_MCP_VERSION)
 for name in docling-mcp imap-mcp doc-convert docgen-mcp; do
   version=${VERSIONS[$name]}
   image=$registry/$name:$version
   if ((!test_only)) && docker manifest inspect "$image" >/dev/null 2>&1; then
-    echo "- $image — уже опубликован" | tee -a "${GITHUB_STEP_SUMMARY:-/dev/null}"
+    echo "- $image is already published" | tee -a "${GITHUB_STEP_SUMMARY:-/dev/null}"
     continue
   fi
   docker build --pull -t "$image" --build-arg "VERSION=$version" --build-arg "GOTENBERG_IMAGE=$GOTENBERG_IMAGE" "$ROOT/images/$name"
@@ -37,8 +37,8 @@ for name in docling-mcp imap-mcp doc-convert docgen-mcp; do
   else
     bash "$ROOT/images/$name/test.sh" "$image"
   fi
-  # исправимые HIGH/CRITICAL блокируют выпуск, как у образов Nabu; принятые
-  # находки — в images/<образ>/.trivyignore.yaml, каждая с причиной и сроком
+  # fixable HIGH/CRITICAL block a release, as with the images of Nabu; accepted
+  # findings are in images/<image>/.trivyignore.yaml, each with a reason and a deadline
   ignore=()
   if [[ -f $ROOT/images/$name/.trivyignore.yaml ]]; then
     ignore=(-v "$ROOT/images/$name/.trivyignore.yaml:/trivyignore.yaml:ro")

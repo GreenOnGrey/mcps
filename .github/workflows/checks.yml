@@ -1,4 +1,4 @@
-# Проверки на каждый PR: shellcheck, actionlint, чарт, образы.
+# Checks on every PR: shellcheck, actionlint, the chart, images.
 name: checks
 on:
   pull_request:
@@ -34,7 +34,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: Инструменты
+      - name: Tools
         run: |
           set -a; source config/versions.env; set +a
           curl -fsSL "https://get.helm.sh/helm-$HELM_VERSION-linux-amd64.tar.gz" -o /tmp/helm.tgz
@@ -44,7 +44,7 @@ jobs:
           sudo install /tmp/kubeconform /usr/local/bin/kubeconform
           sudo curl -fsSL "https://github.com/mikefarah/yq/releases/download/$YQ_VERSION/yq_linux_amd64" -o /usr/local/bin/yq
           sudo chmod +x /usr/local/bin/yq
-      - name: Чарт
+      - name: Chart
         run: bash tests/manifests.sh
 
   images:

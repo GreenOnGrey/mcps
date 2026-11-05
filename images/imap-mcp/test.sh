@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Тест образа imap-mcp (FTR.NAB.CMN-0006 YML-01, IMG-03): не root, корневая ФС
-# только для чтения, без токена — 401, с токеном проходит до проверки у Яндекса
-# (здесь — недоступный сервис: ответ — ошибка, а не 200 с данными).
+# A test of the image imap-mcp (FTR.NAB.CMN-0006 YML-01, IMG-03): not root, a read-only
+# root filesystem, 401 without a token, and with a token it goes as far as the check at Yandex
+# (here an unreachable service: the answer is an error, not 200 with data).
 set -euo pipefail
-image=${1:?образ}
+image=${1:?the image}
 docker run --rm --read-only --tmpfs /tmp -e PORT=8000 -e USERINFO_URL=http://127.0.0.1:9/info \
   --entrypoint python "$image" -c '
 import json, os, subprocess, sys, time, urllib.error, urllib.request

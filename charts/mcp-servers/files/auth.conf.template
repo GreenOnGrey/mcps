@@ -1,9 +1,9 @@
-# Сайдкар docling-mcp (FTR.NAB.CMN-0006 arch §7.2): пропускает запрос с ключом.
-# Ключ — без map: строка «Bearer <64 hex>» длиннее корзины хеша map (64) по умолчанию.
+# The sidecar of docling-mcp (FTR.NAB.CMN-0006 arch §7.2): lets through a request with the key.
+# The key is checked without map: the string "Bearer <64 hex>" is longer than the default hash bucket of map (64).
 server {
   listen 8080;
-  # Журнал запросов — чтобы видеть отказы 401; формат по умолчанию без заголовков
-  # запроса, ключ в журнал не попадает.
+  # The request log shows 401 refusals; the default format has no headers
+  # of a request, so the key does not reach the log.
   access_log /dev/stdout;
   location = /healthz { access_log off; return 200 "ok\n"; }
   location / {
