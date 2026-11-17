@@ -107,6 +107,18 @@ mcp_chart() {
       fail "STD-14 $combo: keys not from secrets"
     fi
   done
+  # The networks of the company, besides the internet: a site of the company network is open to the servers
+  # only through them (FTR.NAB.CMN-0006).
+  mkdir -p "$OUT/mcp-egress"
+  if helm template mcp-servers "$CHART" -n mcp --kube-version "$KUBE_VERSION" \
+      --set search.enabled=true --set-string s3.namespace=storages \
+      --set-json 'egressAllow=["10.20.30.0/24","10.20.31.5/32"]' >"$OUT/mcp-egress/mcp-servers.yaml" 2>&1 &&
+    docs_json "$OUT/mcp-egress/mcp-servers.yaml" | jq -e 'select(.kind == "NetworkPolicy" and .metadata.name == "egress-internet")
+      | [.spec.egress[].to[]?.ipBlock.cidr] | (index("0.0.0.0/0") != null and index("10.20.30.0/24") != null and index("10.20.31.5/32") != null)' >/dev/null; then
+    pass "SEC-07: egressAllow opens the networks of the company besides the internet"
+  else
+    fail "SEC-07: egressAllow does not reach the policy egress-internet"
+  fi
   if docs_json "$OUT/mcp-search/mcp-servers.yaml" | jq -r 'select(.kind == "ConfigMap" and .metadata.name == "searxng-settings") | .data["settings.yml"]' |
     yq -e '.server.limiter == false and (.use_default_settings.engines.keep_only | length) == 7 and (.use_default_settings.engines.keep_only | contains(["google"]) | not)
       and ([.engines[] | select(.disabled == false) | .name] | join(",")) == (.use_default_settings.engines.keep_only | join(","))' >/dev/null; then

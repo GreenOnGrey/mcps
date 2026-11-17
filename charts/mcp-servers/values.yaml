@@ -62,6 +62,10 @@ callers:
   namespace: nabu
   name: nabu
   components: [api, worker, agent]
+# Networks of the company the servers reach besides the internet, as CIDRs: web search opens a site of the
+# company network only when its network is here, because the private ranges are closed to the servers by
+# default (FTR.NAB.CMN-0006). An administrator names them: such as [10.20.30.0/24].
+egressAllow: []
 # S3 of the stand: copies of workspace files for document parsing (R14).
 s3:
   namespace: storages
