@@ -1,0 +1,75 @@
+{{- if .Values.clickhouse.enabled }}
+{{- $host := printf "%s.%s.svc:8000" "clickhouse" .Release.Namespace }}
+# Read-only ClickHouse (FTR.INFRA.MCPS-0001 R2, R3, R9): mcp-clickhouse from our image with the
+# middleware that turns the personal token "login:password" of the request into the credentials of
+# the query, adding readonly=1 and the limits of the chart.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clickhouse
+  labels: {{- include "mcp.labels" . | nindent 4 }}
+    app.kubernetes.io/name: clickhouse
+spec:
+  replicas: 1
+  selector: { matchLabels: { app.kubernetes.io/name: clickhouse } }
+  template:
+    metadata:
+      labels: {{- include "mcp.labels" . | nindent 8 }}
+        app.kubernetes.io/name: clickhouse
+    spec:
+      {{- include "mcp.podSecurity" . | nindent 6 }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: clickhouse
+          image: {{ .Values.clickhouse.image }}
+          ports: [{ name: http, containerPort: 8000 }]
+          env:
+            - { name: CLICKHOUSE_HOST, value: {{ .Values.clickhouse.host | quote }} }
+            - { name: CLICKHOUSE_PORT, value: {{ .Values.clickhouse.port | quote }} }
+            - { name: CLICKHOUSE_SECURE, value: {{ .Values.clickhouse.secure | quote }} }
+            - { name: CLICKHOUSE_VERIFY, value: "true" }
+            # the upstream refuses to start without a configured user; the middleware replaces both per request
+            - { name: CLICKHOUSE_USER, value: mcp-placeholder }
+            - { name: CLICKHOUSE_PASSWORD, value: placeholder }
+            - { name: CLICKHOUSE_MCP_SERVER_TRANSPORT, value: http }
+            - { name: CLICKHOUSE_MCP_BIND_HOST, value: 0.0.0.0 }
+            # the gate of our image is the only entrance: it answers 401 without a personal token
+            - { name: CLICKHOUSE_MCP_AUTH_DISABLED, value: "true" }
+            - { name: CLICKHOUSE_MCP_QUERY_TIMEOUT, value: {{ .Values.clickhouse.limits.querySeconds | quote }} }
+            - { name: CLICKHOUSE_MCP_ALLOWED_HOSTS, value: {{ printf "%s,localhost:8000,127.0.0.1:8000" $host | quote }} }
+            - { name: CLICKHOUSE_LIMIT_SECONDS, value: {{ .Values.clickhouse.limits.querySeconds | quote }} }
+            - { name: CLICKHOUSE_LIMIT_ROWS, value: {{ .Values.clickhouse.limits.maxRows | quote }} }
+            - { name: HOST, value: 0.0.0.0 }
+            - { name: PORT, value: "8000" }
+            {{- with .Values.clickhouse.caSecret }}
+            - { name: CLICKHOUSE_CA_CERT, value: /etc/mcp-ca/ca.crt }
+            {{- end }}
+          # /health of the upstream asks the database and fails while the database is unreachable:
+          # the readiness of the server is its listener, not the state of the company system
+          readinessProbe: { tcpSocket: { port: http }, periodSeconds: 10 }
+          livenessProbe: { tcpSocket: { port: http }, periodSeconds: 30 }
+          resources: {{- toYaml .Values.clickhouse.resources | nindent 12 }}
+          {{- include "mcp.containerSecurity" . | nindent 10 }}
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+            {{- with .Values.clickhouse.caSecret }}
+            - { name: ca, mountPath: /etc/mcp-ca, readOnly: true }
+            {{- end }}
+      volumes:
+        - { name: tmp, emptyDir: {} }
+        {{- with .Values.clickhouse.caSecret }}
+        - name: ca
+          secret: { secretName: {{ . }}, defaultMode: 0444 }
+        {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: clickhouse
+  labels: {{- include "mcp.labels" . | nindent 4 }}
+spec:
+  selector: { app.kubernetes.io/name: clickhouse }
+  ports: [{ name: http, port: 8000, targetPort: http }]
+{{- end }}

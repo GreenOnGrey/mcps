@@ -1,0 +1,57 @@
+{
+  "name": "confluence",
+  "valuesKey": "confluence",
+  "service": "confluence:8000",
+  "deployments": [
+    "confluence"
+  ],
+  "secrets": [],
+  "keySecret": null,
+  "wantTools": [],
+  "oauth": {
+    "authorizeUrl": "https://auth.atlassian.com/authorize?audience=api.atlassian.com&prompt=consent",
+    "tokenUrl": "https://auth.atlassian.com/oauth/token",
+    "scopes": [
+      "read:confluence-content.all",
+      "read:confluence-content.summary",
+      "read:confluence-space.summary",
+      "read:confluence-user",
+      "search:confluence",
+      "read:page:confluence",
+      "read:space:confluence",
+      "read:comment:confluence",
+      "read:attachment:confluence",
+      "read:me",
+      "offline_access"
+    ]
+  },
+  "token": {
+    "hint": "a personal access token of Confluence Data Center; Cloud signs in through OAuth",
+    "header": "Authorization",
+    "prefix": "Token "
+  },
+  "catalogHint": {
+    "allowedTools": [
+      "confluence_check_content_permissions",
+      "confluence_download_attachment",
+      "confluence_download_content_attachments",
+      "confluence_get_attachments",
+      "confluence_get_comments",
+      "confluence_get_inline_comments",
+      "confluence_get_labels",
+      "confluence_get_page",
+      "confluence_get_page_children",
+      "confluence_get_page_diff",
+      "confluence_get_page_history",
+      "confluence_get_page_images",
+      "confluence_get_page_restrictions",
+      "confluence_get_page_template",
+      "confluence_get_page_views",
+      "confluence_get_space_page_tree",
+      "confluence_get_space_permissions",
+      "confluence_list_page_templates",
+      "confluence_search",
+      "confluence_search_user"
+    ]
+  }
+}

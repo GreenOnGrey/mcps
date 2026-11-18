@@ -60,6 +60,45 @@ docConvert:
   # Queues of conversions; beyond them, 503 "service busy".
   queue: 10
 
+# Personal servers (FTR.INFRA.MCPS-0001): the token of the user arrives in every request from the
+# proxy of Nabu, the servers store nothing and expose read-only tools. An address is a setting of
+# the stand, not of a user: one product of one stand has one address (tech §3).
+# cloud | dc: Cloud signs users in by OAuth 2.0 (3LO), Data Center by a personal access token.
+jira:
+  enabled: false
+  image: ghcr.io/greenongrey/atlassian-mcp:0.1.0
+  url: ""
+  authMode: cloud
+  cloudId: ""
+  # Secret of the namespace with ca.crt of the company CA, if the system has a private certificate.
+  caSecret: ""
+  resources: { requests: { cpu: 100m, memory: 512Mi }, limits: { cpu: "1", memory: 1Gi } }
+confluence:
+  enabled: false
+  image: ghcr.io/greenongrey/atlassian-mcp:0.1.0
+  url: ""
+  authMode: cloud
+  cloudId: ""
+  caSecret: ""
+  resources: { requests: { cpu: 100m, memory: 512Mi }, limits: { cpu: "1", memory: 1Gi } }
+gitlab:
+  enabled: false
+  image: ghcr.io/greenongrey/gitlab-mcp:0.1.0
+  # The address of the instance, not of the API: the server appends /api/v4.
+  url: ""
+  caSecret: ""
+  resources: { requests: { cpu: 50m, memory: 256Mi }, limits: { cpu: 500m, memory: 512Mi } }
+clickhouse:
+  enabled: false
+  image: ghcr.io/greenongrey/clickhouse-mcp:0.1.0
+  host: ""
+  port: 8443
+  secure: true
+  caSecret: ""
+  # readonly=1 goes with every query; these two bound the price of a mistake of the model.
+  limits: { querySeconds: 30, maxRows: 10000 }
+  resources: { requests: { cpu: 100m, memory: 256Mi }, limits: { cpu: "1", memory: 512Mi } }
+
 # Who calls the servers: components of Nabu (app.kubernetes.io/name=nabu) and the checks of the stand.
 # api is the MCP proxy for agents, worker is the collector of the memory of communications, agent is
 # the check of a connection in the catalog.

@@ -1,0 +1,71 @@
+{{- if .Values.gitlab.enabled }}
+{{- $host := "" }}
+{{- with .Values.gitlab.url }}{{ $host = (urlParse .).host }}{{ end }}
+# Read-only GitLab (FTR.INFRA.MCPS-0001 R2, R3, R8): zereight/gitlab-mcp reads the personal access
+# token of the user from the header of every request (REMOTE_AUTHORIZATION), keeps it for its
+# session and never writes it to disk. The built-in /api/v4/mcp of GitLab needs 19.5; the stand
+# has 17.11 (tech §4).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gitlab
+  labels: {{- include "mcp.labels" . | nindent 4 }}
+    app.kubernetes.io/name: gitlab
+spec:
+  replicas: 1
+  selector: { matchLabels: { app.kubernetes.io/name: gitlab } }
+  template:
+    metadata:
+      labels: {{- include "mcp.labels" . | nindent 8 }}
+        app.kubernetes.io/name: gitlab
+    spec:
+      {{- include "mcp.podSecurity" . | nindent 6 }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: gitlab
+          image: {{ .Values.gitlab.image }}
+          ports: [{ name: http, containerPort: 8000 }]
+          env:
+            - { name: STREAMABLE_HTTP, value: "true" }
+            # the token comes in the header of each request; there is no token of the stand
+            - { name: REMOTE_AUTHORIZATION, value: "true" }
+            - { name: GITLAB_API_URL, value: {{ printf "%s/api/v4" (trimSuffix "/" .Values.gitlab.url) | quote }} }
+            - { name: GITLAB_ALLOWED_HOSTS, value: {{ $host | quote }} }
+            # no write tool is registered: the allowlist of the catalog is the second line (R3)
+            - { name: GITLAB_PERMISSION_MODE, value: readonly }
+            - { name: GITLAB_TOOLSETS, value: "core,merge_requests,repositories,issues,ci,pipelines,projects,branches,search" }
+            - { name: GITLAB_DOWNLOAD_DIR, value: /tmp/downloads }
+            - { name: SESSION_TIMEOUT_SECONDS, value: "3600" }
+            - { name: HOST, value: 0.0.0.0 }
+            - { name: PORT, value: "8000" }
+            {{- with .Values.gitlab.caSecret }}
+            - { name: NODE_EXTRA_CA_CERTS, value: /etc/mcp-ca/ca.crt }
+            {{- end }}
+          startupProbe: { httpGet: { path: /healthz, port: http }, periodSeconds: 5, failureThreshold: 60 }
+          readinessProbe: { httpGet: { path: /healthz, port: http }, periodSeconds: 15, timeoutSeconds: 10, failureThreshold: 5 }
+          livenessProbe: { httpGet: { path: /healthz, port: http }, periodSeconds: 30, timeoutSeconds: 10, failureThreshold: 5 }
+          resources: {{- toYaml .Values.gitlab.resources | nindent 12 }}
+          {{- include "mcp.containerSecurity" . | nindent 10 }}
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+            {{- with .Values.gitlab.caSecret }}
+            - { name: ca, mountPath: /etc/mcp-ca, readOnly: true }
+            {{- end }}
+      volumes:
+        - { name: tmp, emptyDir: {} }
+        {{- with .Values.gitlab.caSecret }}
+        - name: ca
+          secret: { secretName: {{ . }}, defaultMode: 0444 }
+        {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gitlab
+  labels: {{- include "mcp.labels" . | nindent 4 }}
+spec:
+  selector: { app.kubernetes.io/name: gitlab }
+  ports: [{ name: http, port: 8000, targetPort: http }]
+{{- end }}

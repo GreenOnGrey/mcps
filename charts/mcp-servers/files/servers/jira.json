@@ -1,0 +1,67 @@
+{
+  "name": "jira",
+  "valuesKey": "jira",
+  "service": "jira:8000",
+  "deployments": [
+    "jira"
+  ],
+  "secrets": [],
+  "keySecret": null,
+  "wantTools": [],
+  "oauth": {
+    "authorizeUrl": "https://auth.atlassian.com/authorize?audience=api.atlassian.com&prompt=consent",
+    "tokenUrl": "https://auth.atlassian.com/oauth/token",
+    "scopes": [
+      "read:jira-work",
+      "read:jira-user",
+      "read:me",
+      "offline_access"
+    ]
+  },
+  "token": {
+    "hint": "a personal access token of Jira Data Center; Cloud signs in through OAuth",
+    "header": "Authorization",
+    "prefix": "Token "
+  },
+  "catalogHint": {
+    "allowedTools": [
+      "jira_download_attachments",
+      "jira_get_agile_boards",
+      "jira_get_all_projects",
+      "jira_get_board_issues",
+      "jira_get_create_fields",
+      "jira_get_cross_project_dependencies",
+      "jira_get_field_options",
+      "jira_get_issue",
+      "jira_get_issue_dates",
+      "jira_get_issue_development_info",
+      "jira_get_issue_images",
+      "jira_get_issue_proforma_forms",
+      "jira_get_issue_sla",
+      "jira_get_issue_watchers",
+      "jira_get_issues_development_info",
+      "jira_get_link_types",
+      "jira_get_proforma_form_details",
+      "jira_get_project_components",
+      "jira_get_project_epic_hierarchy",
+      "jira_get_project_fields",
+      "jira_get_project_issue_types",
+      "jira_get_project_issues",
+      "jira_get_project_versions",
+      "jira_get_queue_issues",
+      "jira_get_request_type_fields",
+      "jira_get_request_types",
+      "jira_get_service_desk_for_project",
+      "jira_get_service_desk_queues",
+      "jira_get_sprint_issues",
+      "jira_get_sprints_from_board",
+      "jira_get_transitions",
+      "jira_get_user_profile",
+      "jira_get_worklog",
+      "jira_search",
+      "jira_search_assignable_users",
+      "jira_search_fields",
+      "jira_search_projects"
+    ]
+  }
+}

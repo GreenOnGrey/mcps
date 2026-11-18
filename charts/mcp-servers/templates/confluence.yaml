@@ -1,0 +1,3 @@
+{{- if .Values.confluence.enabled }}
+{{- include "mcp.atlassian" (dict "name" "confluence" "cfg" .Values.confluence "root" .) }}
+{{- end }}
