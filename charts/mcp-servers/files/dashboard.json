@@ -731,6 +731,100 @@
           "refId": "A"
         }
       ]
+    },
+    {
+      "type": "row",
+      "title": "Personal servers (FTR.INFRA.MCPS-0001: Jira, Confluence, GitLab, ClickHouse)",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 72
+      },
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Memory of the personal servers",
+      "description": "The servers keep the tools of a company system in memory; a steady growth points at a leak of a session.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 73
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "sum by (pod, container) (container_memory_working_set_bytes{namespace=\"mcp\",container!=\"\",pod=~\"jira|confluence|gitlab|clickhouse\"})",
+          "legendFormat": "{{pod}} / {{container}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Restarts of the personal servers",
+      "description": "A restart of a personal server drops the sessions of the users: the tool call has to start again.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "victoriametrics"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 73
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "victoriametrics"
+          },
+          "expr": "sum by (pod, container) (increase(kube_pod_container_status_restarts_total{namespace=\"mcp\",pod=~\"jira|confluence|gitlab|clickhouse\"}[1h]))",
+          "legendFormat": "{{pod}} / {{container}}",
+          "refId": "A"
+        }
+      ]
     }
   ]
 }

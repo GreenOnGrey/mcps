@@ -1,0 +1,3 @@
+{{- if .Values.jira.enabled }}
+{{- include "mcp.atlassian" (dict "name" "jira" "cfg" .Values.jira "root" .) }}
+{{- end }}

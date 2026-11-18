@@ -59,12 +59,15 @@ code() {
   docker run --rm --network "container:$name" -i "$PROBE_CURL_IMAGE" -sS -K - -o /dev/null -w '%{http_code}' \
     -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' -d "$init" http://127.0.0.1:8080/mcp
 }
+# The 401 comes from nginx alone: it answers before docling-mcp starts, so the wait follows the
+# request with the key (200 only when the server is up) and the 401 is checked after it.
+auth=$(printf 'header = "Authorization: Bearer %s"\n' "$key")
 for _ in $(seq 1 60); do
-  [[ $(printf '' | code 2>/dev/null) == 401 ]] && break
+  [[ $(printf '%s' "$auth" | code 2>/dev/null) == 200 ]] && break
   sleep 1
 done
 without=$(printf '' | code)
-with=$(printf 'header = "Authorization: Bearer %s"\n' "$key" | code)
+with=$(printf '%s' "$auth" | code)
 [[ $without == 401 ]] || { echo "401 was expected without a key, the answer is $without"; exit 1; }
 [[ $with == 200 ]] || { echo "200 was expected with a key, the answer is $with"; exit 1; }
 echo "docling-mcp: the sidecar gives 401 without a key and 200 with a key"

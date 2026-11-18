@@ -1,0 +1,32 @@
+# Accepted findings of the scan of gitlab-mcp (images/publish.sh, FTR.INFRA.MCPS-0001 tech
+# decision 8): the pinned upstream package @zereight/mcp-gitlab 2.3.29 and the npm bundled in
+# node:24-slim. Both are fixed only by a newer upstream or a newer Node image; a bump of either
+# is a change of the Dockerfile.
+#
+# Why this is acceptable now: the server is a personal MCP server inside the cluster. It is
+# reachable only from api, worker and agent of Nabu (network policy from-nabu); it speaks only
+# to the GitLab address of the stand, whose certificate the operator names. The findings are
+# denial of service in HTTP clients and a certificate check of undici; the npm copy is used at
+# the build, not at the runtime of the container.
+
+vulnerabilities:
+  # brace-expansion: a denial of service while expanding a pattern
+  - id: CVE-2026-102276
+    statement: a denial of service of one tool call in an isolated pod; the pattern comes from the server, not from the user
+    expired_at: 2027-02-28
+  - id: CVE-2026-102278
+    statement: the same brace-expansion finding under its second CVE number
+    expired_at: 2027-02-28
+  # undici: the HTTP client of the upstream package and of the bundled npm
+  - id: CVE-2026-109383
+    statement: a certificate check bypass needs a malicious GitLab server; the address and the certificate are settings of the stand
+    expired_at: 2027-02-28
+  - id: CVE-2026-109869
+    statement: a denial of service through an unhandled stream error of one request
+    expired_at: 2027-02-28
+  - id: CVE-2026-19534
+    statement: a denial of service through an unrequested WebSocket upgrade; the server does not open WebSocket
+    expired_at: 2027-02-28
+  - id: CVE-2026-87018
+    statement: a denial of service through a TLS renegotiation; the stand has no renegotiation and no untrusted peer
+    expired_at: 2027-02-28

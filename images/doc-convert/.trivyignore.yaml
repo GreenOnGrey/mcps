@@ -10,6 +10,10 @@
 # WebSocket, does not go outside over TLS and does not use SSH.
 
 vulnerabilities:
+  # golang.org/x/net/html 0.59 → 0.62: a denial of service through crafted HTML
+  - id: CVE-2026-78661
+    statement: doc-convert has no outgoing network and takes HTML only from docgen inside the cluster, in its own pod
+    expired_at: 2027-02-28
   # labstack/echo/v5 5.4.0 → 5.4.1: an access bypass and held connections with WebSocket
   - id: GHSA-cxf3-9h37-7rr8
     paths: [usr/bin/gotenberg]

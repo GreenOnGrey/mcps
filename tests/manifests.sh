@@ -47,7 +47,7 @@ kubeconform_file() {
 # helm_args <enabled servers by valuesKey>: the chart values with these servers.
 helm_args() {
   local key on
-  for key in docling search yandexMail docgen; do
+  for key in docling search yandexMail docgen jira confluence gitlab clickhouse; do
     on=false
     [[ " $* " == *" $key "* ]] && on=true
     printf '%s\n' --set "$key.enabled=$on"
@@ -58,13 +58,18 @@ helm_args() {
 mcp_chart() {
   printf '\nChart mcp-servers\n'
   local combo dir f keys args=() missing deps want bad pols docs_pols
-  for combo in docling search yandex-mail docgen all; do
+  for combo in docling search yandex-mail docgen jira confluence gitlab clickhouse all; do
     case $combo in
       docling) keys=docling want="docling-mcp docling-serve " ;;
       search) keys=search want="search " ;;
       yandex-mail) keys=yandexMail want="yandex-mail " ;;
       docgen) keys=docgen want="doc-convert docgen " ;;
-      all) keys="docling search yandexMail docgen" want="doc-convert docgen docling-mcp docling-serve search yandex-mail " ;;
+      jira) keys=jira want="jira " ;;
+      confluence) keys=confluence want="confluence " ;;
+      gitlab) keys=gitlab want="gitlab " ;;
+      clickhouse) keys=clickhouse want="clickhouse " ;;
+      all) keys="docling search yandexMail docgen jira confluence gitlab clickhouse"
+        want="clickhouse confluence doc-convert docgen docling-mcp docling-serve gitlab jira search yandex-mail " ;;
     esac
     dir=$OUT/mcp-$combo
     mkdir -p "$dir"
@@ -101,7 +106,14 @@ mcp_chart() {
     else
       fail "SEC-04 $combo: egress-internet does not exclude private networks"
     fi
-    if [[ $combo == yandex-mail ]] || grep -Eq '(mcp-[a-z-]+-key|searxng-secret)' "$f" && ! grep -Eq 'value: "?[0-9a-f]{64}' "$f"; then
+    if [[ " yandex-mail jira confluence gitlab clickhouse " == *" $combo "* ]]; then
+      # a personal server has no key of the platform: the credentials come in every request (FTR.INFRA.MCPS-0001 R2)
+      if grep -q 'secretKeyRef' "$f"; then
+        fail "STD-14 $combo: a personal server got a platform key"
+      else
+        pass "STD-14 $combo: no key of the platform, credentials come with the request"
+      fi
+    elif grep -Eq '(mcp-[a-z-]+-key|searxng-secret)' "$f" && ! grep -Eq 'value: "?[0-9a-f]{64}' "$f"; then
       pass "STD-14 $combo: keys only from secrets"
     else
       fail "STD-14 $combo: keys not from secrets"
@@ -150,7 +162,10 @@ descriptions() {
     name=$(basename "$d" .json)
     if ! jq -e --arg n "$name" '.name == $n and (.valuesKey | type) == "string" and (.service | test("^[a-z0-9-]+:[0-9]+$"))
         and (.deployments | type == "array" and length > 0) and (.secrets | type) == "array" and (.wantTools | type) == "array"
-        and (.keySecret == null or (.keySecret as $k | .secrets | index($k) != null))' "$d" >/dev/null; then
+        and (.keySecret == null or (.keySecret as $k | .secrets | index($k) != null))
+        and (.token == null or ((.token | type) == "object" and (.token.hint | type) == "string"
+          and (.token.header | type) == "string" and (.token.prefix | type) == "string"))
+        and (.keySecret != null or .oauth != null or .token != null)' "$d" >/dev/null; then
       fail "DESC $name: an incomplete description"
       continue
     fi
@@ -171,7 +186,9 @@ descriptions() {
 image_tags() {
   printf '\nVersions of images\n'
   local pair image version
-  for pair in "docling-mcp=$DOCLING_MCP_VERSION" "imap-mcp=$IMAP_MCP_VERSION" "docgen-mcp=$DOCGEN_MCP_VERSION" "doc-convert=$DOC_CONVERT_VERSION"; do
+  for pair in "docling-mcp=$DOCLING_MCP_VERSION" "imap-mcp=$IMAP_MCP_VERSION" "docgen-mcp=$DOCGEN_MCP_VERSION" \
+    "doc-convert=$DOC_CONVERT_VERSION" "atlassian-mcp=$ATLASSIAN_MCP_VERSION" "gitlab-mcp=$GITLAB_MCP_VERSION" \
+    "clickhouse-mcp=$CLICKHOUSE_MCP_VERSION"; do
     image=${pair%%=*} version=${pair#*=}
     if grep -q "ghcr.io/greenongrey/$image:$version\$" "$CHART/values.yaml"; then
       pass "VER $image: $version"
