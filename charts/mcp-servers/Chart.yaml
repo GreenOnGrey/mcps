@@ -1,6 +1,6 @@
 apiVersion: v2
 name: mcp-servers
-description: "MCP servers of the stand (FTR.NAB.CMN-0006): document parsing, web search, read-only Yandex Mail"
+description: "MCP servers of the stand (FTR.NAB.CMN-0006, FTR.INFRA.MCPS-0001): document parsing, web search, read-only Yandex Mail, personal servers of Jira, Confluence, GitLab and ClickHouse"
 type: application
 # release.yml sets the version from a tag vX.Y.Z of this repository.
 version: 0.0.0
