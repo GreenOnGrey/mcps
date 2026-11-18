@@ -134,7 +134,7 @@ mcp_chart() {
     fail "SEC-07: egressAllow does not reach the policy egress-internet"
   fi
   if docs_json "$OUT/mcp-search/mcp-servers.yaml" | jq -r 'select(.kind == "ConfigMap" and .metadata.name == "searxng-settings") | .data["settings.yml"]' |
-    yq -e '.server.limiter == false and (.use_default_settings.engines.keep_only | length) == 7 and (.use_default_settings.engines.keep_only | contains(["google"]) | not)
+    yq -e '.server.limiter == false and (.use_default_settings.engines.keep_only | length) == 6 and (.use_default_settings.engines.keep_only | contains(["google"]) | not)
       and ([.engines[] | select(.disabled == false) | .name] | join(",")) == (.use_default_settings.engines.keep_only | join(","))' >/dev/null; then
     pass "SRC-06: SearXNG: the listed engines are on explicitly, no Google, the limiter is off"
   else
