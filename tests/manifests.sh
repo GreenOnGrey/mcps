@@ -107,6 +107,20 @@ mcp_chart() {
       fail "STD-14 $combo: keys not from secrets"
     fi
   done
+  # A site of the company network: web_url_read of mcp-searxng opens a URL only when its address is public, so
+  # reading such a site needs allowPrivateUrls with the network (FTR.NAB.CMN-0006).
+  if docs_json "$OUT/mcp-search/mcp-servers.yaml" | jq -e 'select(.kind == "Deployment" and .metadata.name == "search")
+      | .spec.template.spec.containers[] | select(.name == "mcp-searxng")
+      | .env[] | select(.name == "MCP_HTTP_ALLOW_PRIVATE_URLS") | .value == "false"' >/dev/null &&
+    helm template mcp-servers "$CHART" -n mcp --kube-version "$KUBE_VERSION" --set search.enabled=true \
+      --set search.allowPrivateUrls=true --set-string s3.namespace=storages 2>/dev/null |
+    docs_json /dev/stdin | jq -e 'select(.kind == "Deployment" and .metadata.name == "search")
+      | .spec.template.spec.containers[] | select(.name == "mcp-searxng")
+      | .env[] | select(.name == "MCP_HTTP_ALLOW_PRIVATE_URLS") | .value == "true"' >/dev/null; then
+    pass "SEC-09: MCP_HTTP_ALLOW_PRIVATE_URLS is off by default and follows search.allowPrivateUrls"
+  else
+    fail "SEC-09: MCP_HTTP_ALLOW_PRIVATE_URLS does not follow search.allowPrivateUrls"
+  fi
   # The networks of the company, besides the internet: a site of the company network is open to the servers
   # only through them (FTR.NAB.CMN-0006).
   mkdir -p "$OUT/mcp-egress"

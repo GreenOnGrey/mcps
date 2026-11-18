@@ -65,6 +65,10 @@ spec:
             # The Host with which the Nabu proxy and the checks of the stand come.
             - name: MCP_HTTP_ALLOWED_HOSTS
               value: "search.{{ .Release.Namespace }}.svc:3000,search.{{ .Release.Namespace }}.svc.cluster.local:3000,search.{{ .Release.Namespace }}:3000,search:3000,127.0.0.1:3000,localhost:3000"
+            # web_url_read opens a URL only when its address is public: a site of the company network resolves
+            # into a private range, and the server refuses it before any packet. The installer turns this on
+            # when it opens the networks of the company to the servers (egressAllow).
+            - { name: MCP_HTTP_ALLOW_PRIVATE_URLS, value: {{ .Values.search.allowPrivateUrls | quote }} }
           readinessProbe: { tcpSocket: { port: http }, periodSeconds: 10 }
           resources: {{- toYaml .Values.search.mcp.resources | nindent 12 }}
           {{- include "mcp.containerSecurity" . | nindent 10 }}
