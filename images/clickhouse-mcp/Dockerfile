@@ -6,6 +6,8 @@ FROM python:3.12-slim-trixie
 ARG VERSION
 # The upstream version is pinned in requirements.txt: a bump is a change of that file.
 WORKDIR /app
+# Security fixes of the base image: a fixable HIGH blocks a release (images/publish.sh scans with Trivy).
+RUN apt-get update && apt-get install -y --only-upgrade zlib1g && rm -rf /var/lib/apt/lists/*
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY clickhouse_mcp ./clickhouse_mcp
