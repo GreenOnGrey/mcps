@@ -59,22 +59,23 @@ async def _run(ctx: Context, fn):
     """Signs in to the mailbox with the token of the request and runs fn(conn) in a separate thread."""
     token = _token(ctx.headers)
 
-    def once(address):
+    def once(address, account):
         conn = core.connect(address, token)
+        conn.account = account  # {uid} of the links to messages (core.web_link)
         try:
             return fn(conn)
         finally:
             core.close(conn)
 
     def work():
-        address = core.resolve_email(token)
+        address, account = core.resolve_account(token)
         try:
-            return once(address)
+            return once(address, account)
         except (imaplib.IMAP4.abort, OSError) as e:
             # the server dropped the connection (Yandex does so from time to time):
             # everything is read-only, so we repeat once on a new connection
             log.warning("imap-mcp: %s: %s; retrying", type(e).__name__, _reason(e))
-            return once(address)
+            return once(address, account)
 
     try:
         result = await anyio.to_thread.run_sync(work)
@@ -165,7 +166,7 @@ def with_auth(app):
         if not token:
             return await unauthorized(send)
         try:
-            await anyio.to_thread.run_sync(core.resolve_email, token)
+            await anyio.to_thread.run_sync(core.resolve_account, token)
         except core.AuthError:
             return await unauthorized(send)
         except core.MailError as e:

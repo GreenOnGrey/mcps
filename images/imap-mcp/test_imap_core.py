@@ -148,7 +148,29 @@ class Threads(unittest.TestCase):
         out = core.search(FakeIMAP(), core.Query())
         self.assertEqual(out[0]["threadId"], "<root@example.ru>")
         self.assertFalse(out[0]["bulk"])
-        self.assertEqual(out[0]["webLink"], "https://mail.yandex.ru/#search?request=m1%40example.ru")
+        # FakeIMAP has no account: the default template needs {uid}, so there is no link
+        self.assertEqual(out[0]["webLink"], "")
+        conn = FakeIMAP()
+        conn.account = "227863421"
+        out = core.search(conn, core.Query())
+        self.assertTrue(out[0]["webLink"].startswith("https://mail.yandex.ru/?uid=227863421#/search?request="))
+
+    def test_web_link_by_subject(self):
+        link = core.web_link("<a@b.ru>", "Re: Fwd: Смета на релиз 2.3", "227863421")
+        self.assertEqual(link, "https://mail.yandex.ru/?uid=227863421#/search?request="
+                         + core.urllib.parse.quote("Смета на релиз 2.3", safe=""))
+        self.assertEqual(core.web_link("<a@b.ru>", "Ответ: Отв[2]: план", "1"),
+                         "https://mail.yandex.ru/?uid=1#/search?request=" + core.urllib.parse.quote("план", safe=""))
+        self.assertEqual(core.web_link("<a@b.ru>", "", "1"), "")   # no subject, no link
+        self.assertEqual(core.web_link("<a@b.ru>", "x", ""), "")   # no account, no link
+
+    def test_web_link_by_message_id(self):
+        old = core.WEB_LINK
+        core.WEB_LINK = "https://mail.example/#search?q={msgid}"
+        try:
+            self.assertEqual(core.web_link("<m1@example.ru>"), "https://mail.example/#search?q=m1%40example.ru")
+        finally:
+            core.WEB_LINK = old
 
     def test_bulk_by_headers(self):
         msg = core.email.message_from_bytes(b"List-Unsubscribe: <mailto:x@y>\r\nFrom: a@b.c\r\n\r\n")
@@ -215,9 +237,9 @@ class Resolve(unittest.TestCase):
 
         def opener(req, timeout):
             calls.append(req.headers["Authorization"])
-            return io.BytesIO(json.dumps({"default_email": "me@yandex.ru"}).encode())
+            return io.BytesIO(json.dumps({"default_email": "me@yandex.ru", "id": "227863421"}).encode())
 
-        self.assertEqual(core.resolve_email("tok", opener), "me@yandex.ru")
+        self.assertEqual(core.resolve_account("tok", opener), ("me@yandex.ru", "227863421"))
         self.assertEqual(core.resolve_email("tok", opener), "me@yandex.ru")
         self.assertEqual(calls, ["OAuth tok"])
         self.assertNotIn("tok", core._cache)  # в памяти только хеш токена
