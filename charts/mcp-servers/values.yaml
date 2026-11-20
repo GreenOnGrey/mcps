@@ -49,11 +49,11 @@ yandexMail:
 # Gotenberg (LibreOffice and Chromium without a network) with the sidecar legacy.
 docgen:
   enabled: false
-  image: ghcr.io/greenongrey/docgen-mcp:0.1.3
+  image: ghcr.io/greenongrey/docgen-mcp:0.1.4
   resources: { requests: { cpu: 50m, memory: 256Mi }, limits: { cpu: "1", memory: 1Gi } }
   limits: { inlineMB: 4, sourceMB: 25, resultMB: 50, timeoutSeconds: 120, maxPages: 500 }
 docConvert:
-  image: ghcr.io/greenongrey/doc-convert:0.1.0
+  image: ghcr.io/greenongrey/doc-convert:0.2.0
   resources: { requests: { cpu: 100m, memory: 512Mi }, limits: { cpu: "2", memory: 2Gi } }
   legacy:
     resources: { requests: { cpu: 10m, memory: 128Mi }, limits: { cpu: "1", memory: 1Gi } }

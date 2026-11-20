@@ -525,8 +525,8 @@ class Server(unittest.TestCase):
 
     def test_multipart(self):
         from docgen import gotenberg
-        body, ctype = gotenberg.multipart({"nativePageRanges": "1-50"}, [("files", "a.docx", b"DATA")])
-        self.assertIn(b'name="nativePageRanges"\r\n\r\n1-50', body)
+        body, ctype = gotenberg.multipart({"nativePages": "1-50"}, [("files", "a.docx", b"DATA")])
+        self.assertIn(b'name="nativePages"\r\n\r\n1-50', body)
         self.assertIn(b'filename="a.docx"', body)
         self.assertTrue(ctype.startswith("multipart/form-data; boundary="))
 
