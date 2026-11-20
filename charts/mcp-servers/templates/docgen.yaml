@@ -87,7 +87,7 @@ spec:
             - --api-port=3000
             - --api-timeout=120s
             - --api-enable-basic-auth
-            - --api-disable-health-check-logging
+            - --api-disable-health-check-route-telemetry
             - --api-disable-download-from
             - --webhook-disable
             - --libreoffice-restart-after=1

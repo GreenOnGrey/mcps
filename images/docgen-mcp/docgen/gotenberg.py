@@ -50,7 +50,7 @@ def office_to_pdf(path: str, pages: str = "") -> bytes:
     """An office document → PDF through LibreOffice."""
     with open(path, "rb") as f:
         data = f.read()
-    fields = {"nativePageRanges": pages} if pages else {}
+    fields = {"nativePages": pages} if pages else {}
     body, ctype = multipart(fields, [("files", os.path.basename(path), data)])
     return _post(limits.CONVERT_URL + "/forms/libreoffice/convert", body, ctype, limits.TIMEOUT)
 
