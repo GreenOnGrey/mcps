@@ -38,15 +38,21 @@ IMAP_PORT = int(os.environ.get("IMAP_PORT", "993"))
 USERINFO_URL = os.environ.get("USERINFO_URL", "https://login.yandex.ru/info?format=json")
 USERINFO_AUTH = os.environ.get("USERINFO_AUTH", "OAuth")  # "OAuth <token>" at Yandex, "Bearer" at others
 USERINFO_FIELD = os.environ.get("USERINFO_FIELD", "default_email")
+# The number of the account in the same answer: {uid} of the link, so that it opens the mailbox of
+# this user among several signed in (FTR.NAB.CMN-0006 tech, decision 28).
+USERINFO_ID_FIELD = os.environ.get("USERINFO_ID_FIELD", "id")
 TIMEOUT = float(os.environ.get("IMAP_TIMEOUT", "30"))
 MAX_RESULTS = 50
 MAX_MESSAGE_BYTES = int(os.environ.get("MAX_MESSAGE_BYTES", str(25 << 20)))
 CACHE_TTL = 300.0
 
 HEADER_FIELDS = "FROM TO CC SUBJECT DATE MESSAGE-ID IN-REPLY-TO REFERENCES LIST-UNSUBSCRIBE LIST-ID PRECEDENCE AUTO-SUBMITTED"
-# The link to a message in the web interface of the provider: {msgid} is the Message-ID without angle
-# brackets (FTR.NAB.CMN-0003 R6: a note leads to the message). Empty means no link.
-WEB_LINK = os.environ.get("WEB_LINK", "https://mail.yandex.ru/#search?request={msgid}")
+# The link to a message in the web interface of the provider (FTR.NAB.CMN-0003 R6: a note leads to the
+# message): {uid} is the number of the account, {subject} the subject without reply prefixes, {msgid}
+# the Message-ID without angle brackets. IMAP of Yandex gives no internal number of a message, so the
+# link is a search by subject in the mailbox of the user (FTR.NAB.CMN-0006 tech, decision 28).
+# Empty means no link; so does an empty value of a placeholder the template uses.
+WEB_LINK = os.environ.get("WEB_LINK", "https://mail.yandex.ru/?uid={uid}#/search?request={subject}")
 # Folders from which neither a mailbox search nor threads read.
 SKIP_ROLES = {"Trash", "Junk", "Spam", "Drafts"}
 # A thread on a server without a search by headers: messages of THREAD_DAYS days (without
@@ -66,7 +72,7 @@ class MailError(Exception):
 
 # --- the address of the mailbox by the token --------------------------------
 
-_cache: dict[str, tuple[str, float]] = {}
+_cache: dict[str, tuple[str, str, float]] = {}
 _cache_lock = threading.Lock()
 
 
@@ -75,15 +81,21 @@ def _key(token: str) -> str:
 
 
 def resolve_email(token: str, opener=urllib.request.urlopen) -> str:
-    """The address of the owner of the token; kept in memory for five minutes by the hash of the token."""
+    """The address of the owner of the token (resolve_account)."""
+    return resolve_account(token, opener)[0]
+
+
+def resolve_account(token: str, opener=urllib.request.urlopen) -> tuple[str, str]:
+    """The address of the owner of the token and the number of the account ("" if the service gives
+    none); kept in memory for five minutes by the hash of the token."""
     if not token:
         raise AuthError("no token")
     k = _key(token)
     now = time.monotonic()
     with _cache_lock:
         hit = _cache.get(k)
-        if hit and hit[1] > now:
-            return hit[0]
+        if hit and hit[2] > now:
+            return hit[0], hit[1]
     req = urllib.request.Request(USERINFO_URL, headers={"Authorization": f"{USERINFO_AUTH} {token}"})
     try:
         with opener(req, timeout=TIMEOUT) as r:
@@ -99,11 +111,12 @@ def resolve_email(token: str, opener=urllib.request.urlopen) -> str:
         address = info["emails"][0]
     if not address:
         raise AuthError(f"the token gives no {USERINFO_FIELD}: grant the scope login:email")
+    account = str(info.get(USERINFO_ID_FIELD) or "")
     with _cache_lock:
         if len(_cache) > 10000:
             _cache.clear()
-        _cache[k] = (address, now + CACHE_TTL)
-    return address
+        _cache[k] = (address, account, now + CACHE_TTL)
+    return address, account
 
 
 def forget(token: str) -> None:
@@ -356,7 +369,7 @@ def fetch_headers(conn, uids: list[bytes]) -> list[dict]:
             "inReplyTo": (msg.get("In-Reply-To") or "").strip(),
             "threadId": thread_id(msg),
             "bulk": bulk(msg),
-            "webLink": web_link(msg.get("Message-ID")),
+            "webLink": web_link(msg.get("Message-ID"), _decode(msg.get("Subject")), getattr(conn, "account", "")),
             "seen": "\\Seen" in flags,
             "size": int(size.group(1)) if size else None,
         }
@@ -421,11 +434,25 @@ def bulk(msg: Message) -> bool:
     return bool(msg.get("List-Unsubscribe") or msg.get("List-Id")) or precedence in ("bulk", "list", "junk") or auto != "no"
 
 
-def web_link(message_id: str | None) -> str:
-    mid = (message_id or "").strip().strip("<>")
-    if not WEB_LINK or not mid:
+_REPLY_PREFIX = re.compile(r"^\s*(?:(?:re|fwd?|aw|wg|ответ|отв|пересл)\s*(?:\[\d+\])?\s*:\s*)+", re.IGNORECASE)
+
+
+def web_link(message_id: str | None, subject: str = "", account: str = "") -> str:
+    """The link of WEB_LINK; "" when the template is empty or a placeholder it uses has no value."""
+    values = {
+        "{msgid}": (message_id or "").strip().strip("<>"),
+        "{subject}": _REPLY_PREFIX.sub("", subject or "").strip(),
+        "{uid}": (account or "").strip(),
+    }
+    link = WEB_LINK
+    if not link:
         return ""
-    return WEB_LINK.replace("{msgid}", urllib.parse.quote(mid, safe=""))
+    for key, value in values.items():
+        if key in link:
+            if not value:
+                return ""
+            link = link.replace(key, urllib.parse.quote(value, safe=""))
+    return link
 
 
 def thread_folders(conn) -> list[str]:

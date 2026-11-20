@@ -24,22 +24,22 @@ class FakeConn:
 class Server(unittest.TestCase):
     def setUp(self):
         self.seen = []
-        self.orig = (core.resolve_email, core.connect, core.list_folders)
+        self.orig = (core.resolve_account, core.connect, core.list_folders)
 
         def resolve(token, opener=None):
             if token != "good":
                 raise core.AuthError("refused")
-            return "me@yandex.ru"
+            return "me@yandex.ru", "42"
 
         def connect(address, token, factory=None):
             self.seen.append((address, token))
             return FakeConn()
 
-        core.resolve_email, core.connect = resolve, connect
+        core.resolve_account, core.connect = resolve, connect
         core.list_folders = lambda conn: [{"name": "INBOX", "special": "Inbox"}]
 
     def tearDown(self):
-        core.resolve_email, core.connect, core.list_folders = self.orig
+        core.resolve_account, core.connect, core.list_folders = self.orig
 
     def client(self):
         return TestClient(server.build_app())

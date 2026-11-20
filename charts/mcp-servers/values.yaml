@@ -39,10 +39,12 @@ search:
 yandexMail:
   enabled: false
   # Our own read-only IMAP server (images/imap-mcp), the tag is its VERSION.
-  image: ghcr.io/greenongrey/imap-mcp:0.2.2
+  image: ghcr.io/greenongrey/imap-mcp:0.2.3
   imapHost: imap.yandex.com
-  # The link to a message: a search by Message-ID in the web interface ({msgid} has no angle brackets).
-  webLink: "https://mail.yandex.ru/#search?request={msgid}"
+  # The link to a message: a search by subject in the mailbox of the user ({uid} — the number of the
+  # account, {subject} — the subject without Re:/Fwd:, {msgid} — the Message-ID without angle brackets).
+  # IMAP of Yandex gives no internal number of a message (FTR.NAB.CMN-0006 tech, decision 28).
+  webLink: "https://mail.yandex.ru/?uid={uid}#/search?request={subject}"
   resources: { requests: { cpu: 10m, memory: 64Mi }, limits: { cpu: 500m, memory: 256Mi } }
 
 # Documents (FTR.NAB.CHAT-0003 tech §2, §3): docgen is an MCP server, doc-convert is
