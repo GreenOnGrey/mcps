@@ -4,7 +4,7 @@ Optional MCP servers for [Nabu](https://github.com/GreenOnGrey/nabu), installed 
 [installer](https://github.com/GreenOnGrey/installer). A server is a [Model Context Protocol](https://modelcontextprotocol.io)
 server: Nabu shows its methods (tools) to the agent of a user, the agent calls them, the server answers.
 
-| Server | What it does | Methods | Access |
+| Server | What it does | Methods in the catalog | Access |
 | --- | --- | --- | --- |
 | [`docling`](#docling) | Converts documents to structured text and Markdown | 5 | Platform key |
 | [`search`](#search) | Web search through SearXNG and reading a page | 2 | Platform key |
@@ -17,6 +17,11 @@ server: Nabu shows its methods (tools) to the agent of a user, the agent calls t
 
 Every server sits behind the auth proxy of the chart (`nginx`): the platform servers check the platform
 key, the personal ones pass the token of the user in the request header and keep nothing.
+
+The number is the default set of a catalog position of Nabu (`catalogHint.allowedTools` in
+`charts/mcp-servers/files/servers/<server>.json`): an administrator allows more or fewer of the methods
+the server exposes. On the stand `docling` answers 42 methods and `search` 8, while the catalog shows 5
+and 2 by default. Our own servers expose exactly the methods listed below.
 
 ## Methods
 
