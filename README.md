@@ -14,6 +14,7 @@ server: Nabu shows its methods (tools) to the agent of a user, the agent calls t
 | [`confluence`](#jira-and-confluence) | Reads Confluence pages, comments and attachments, read-only | 20 | Personal OAuth (Cloud) or token (Data Center) |
 | [`gitlab`](#gitlab) | Reads projects, merge requests, issues and pipelines, read-only | 95 | Personal token (`read_api`) |
 | [`clickhouse`](#clickhouse) | Runs read-only `SELECT` queries | 3 | Personal login and password |
+| [`greenplum`](#greenplum) | Runs read-only `SELECT` queries, reads schemas, tables, columns and view definitions | 5 | Personal login and password |
 
 Every server sits behind the auth proxy of the chart (`nginx`): the platform servers check the platform
 key, the personal ones pass the token of the user in the request header and keep nothing.
@@ -117,6 +118,21 @@ personal token (`login:password`) becomes the credentials of the query, and ever
 | `list_tables` | `database` | The tables of a database with their columns |
 | `run_query` | `query` | Runs one read-only `SELECT` |
 
+### `greenplum`
+
+Our own [greenplum-mcp](images/greenplum-mcp) (`FTR.INFRA.MCPS-0002`): the personal token
+(`login:password`) becomes the credentials of one session of Greenplum. The session is read-only, carries
+`statement_timeout` and `lock_timeout`, and a statement that is not one `SELECT` is refused before the
+database is reached; a result longer than the limit of the chart is cut and marked.
+
+| Method | Arguments | What it does |
+| --- | --- | --- |
+| `list_schemas` | — | The schemas the user may use |
+| `list_tables` | `schema` | The tables and views of a schema |
+| `describe_table` | `schema`, `table` | Columns with types, sizes, nullability and comments |
+| `view_definition` | `schema`, `view` | The SQL of a view, as `pg_get_viewdef` returns it |
+| `run_query` | `query` | Runs one read-only `SELECT` |
+
 ## Install
 
 `installer` enables each server with its own option, such as `MCP_DOCLING=true`. To install the chart directly:
@@ -128,7 +144,7 @@ helm install mcp-servers oci://ghcr.io/greenongrey/charts/mcp-servers \
 
 The platform servers expect their access keys as Secrets in the chart namespace. `installer` creates them, so with plain Helm you create them yourself: their names are listed under `secrets` in `charts/mcp-servers/files/servers/<server>.json`.
 
-The personal servers (`yandex-mail`, `jira`, `confluence`, `gitlab`, `clickhouse`) have no key and no Secret: the token of the user comes in the header of every request from the proxy of Nabu, and the server keeps nothing. They do need the address of the company system, which is a setting of the stand — `jira.url`, `confluence.url`, `gitlab.url`, `clickhouse.host` — and, for a system inside the company network, its network in `egressAllow`.
+The personal servers (`yandex-mail`, `jira`, `confluence`, `gitlab`, `clickhouse`, `greenplum`) have no key and no Secret: the token of the user comes in the header of every request from the proxy of Nabu, and the server keeps nothing. They do need the address of the company system, which is a setting of the stand — `jira.url`, `confluence.url`, `gitlab.url`, `clickhouse.host`, `greenplum.host` — and, for a system inside the company network, its network in `egressAllow`.
 
 ## Layout
 
@@ -137,9 +153,11 @@ charts/mcp-servers/             the Helm chart
 charts/mcp-servers/files/servers/<server>.json   description of a server, read by installer
 charts/mcp-servers/files/dashboard.json          Grafana dashboard
 images/<image>/                 images built here: docling-mcp, imap-mcp, docgen-mcp, doc-convert,
-                                atlassian-mcp, gitlab-mcp, clickhouse-mcp
+                                atlassian-mcp, gitlab-mcp, clickhouse-mcp, greenplum-mcp
 config/versions.env             image and tool versions
+docker-compose.yml              the local run: a profile per server, no credentials in the file
 tests/manifests.sh              checks of the chart
+tests/compose.sh                checks of the local run
 ```
 
 ## Personal servers
@@ -151,6 +169,24 @@ The upstream packages are pinned in `images/<image>/Dockerfile`; the images them
 | `atlassian-mcp` | `mcp-atlassian` | Reads the user token from the request header; read-only mode hides write tools |
 | `gitlab-mcp` | `@zereight/mcp-gitlab` | `REMOTE_AUTHORIZATION` takes the token per request; the built-in `/api/v4/mcp` of GitLab needs 19.5 |
 | `clickhouse-mcp` | `mcp-clickhouse` | Our middleware turns the personal token into the credentials of a query and adds `readonly=1` |
+| `greenplum-mcp` | our own | There is no upstream with per-request credentials, a read-only session, the row limit and `pg_get_viewdef` at once; the server is `images/greenplum-mcp` |
+
+## Run a server locally
+
+Docker with the compose plugin is enough: no Kubernetes, no Helm. The file `docker-compose.yml` has every
+server of this repository under its own profile, and the images are the same ones that go to the stand.
+
+```sh
+cp .env.example .env            # addresses of the company systems; no credentials
+docker compose --profile greenplum up --build     # one server
+docker compose --profile all up --build           # every server
+docker compose up                                 # nothing: profiles are chosen explicitly
+```
+
+A client sends the credentials of a user with every request, so there is no key of the platform and no
+account of the stand in the file. An unreachable company system does not stop a container: the failure is
+the answer of a tool. A new server goes into `docker-compose.yml` in the same change as the chart —
+`tests/compose.sh` fails until it is there.
 
 ## Release
 

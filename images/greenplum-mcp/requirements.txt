@@ -1,0 +1,6 @@
+# The MCP framework of the server and the driver of Greenplum (FTR.INFRA.MCPS-0002).
+# fastmcp is the same family as in clickhouse-mcp: our gate and middleware use its middleware API.
+# 4.2.5: the CVE of fastmcp 2.x (an SSRF through the OpenAPI of an OAuth proxy) and of its
+# OAuthProxy is fixed there; the image is scanned at the release and a fixable HIGH blocks it.
+fastmcp==4.2.5
+psycopg2-binary==2.9.13

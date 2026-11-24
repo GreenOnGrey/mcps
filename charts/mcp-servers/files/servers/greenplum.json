@@ -1,0 +1,26 @@
+{
+  "name": "greenplum",
+  "valuesKey": "greenplum",
+  "service": "greenplum:8000",
+  "deployments": [
+    "greenplum"
+  ],
+  "secrets": [],
+  "keySecret": null,
+  "wantTools": [],
+  "oauth": null,
+  "token": {
+    "hint": "login:password of your Greenplum user, for example analyst:secret",
+    "header": "Authorization",
+    "prefix": "Bearer "
+  },
+  "catalogHint": {
+    "allowedTools": [
+      "run_query",
+      "list_schemas",
+      "list_tables",
+      "describe_table",
+      "view_definition"
+    ]
+  }
+}

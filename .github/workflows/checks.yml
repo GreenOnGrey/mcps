@@ -19,7 +19,7 @@ jobs:
       - name: shellcheck
         run: |
           curl -fsSL "https://github.com/koalaman/shellcheck/releases/download/$SHELLCHECK_VERSION/shellcheck-$SHELLCHECK_VERSION.linux.x86_64.tar.xz" | tar -xJ
-          "./shellcheck-$SHELLCHECK_VERSION/shellcheck" -x tests/manifests.sh images/publish.sh images/*/test.sh
+          "./shellcheck-$SHELLCHECK_VERSION/shellcheck" -x tests/manifests.sh tests/compose.sh images/publish.sh images/*/test.sh
 
   actionlint:
     runs-on: ubuntu-24.04
@@ -46,6 +46,16 @@ jobs:
           sudo chmod +x /usr/local/bin/yq
       - name: Chart
         run: bash tests/manifests.sh
+
+  compose:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Local run
+        run: |
+          set -a; source config/versions.env; set +a
+          sudo apt-get update -qq && sudo apt-get install -y -qq jq
+          bash tests/compose.sh
 
   images:
     runs-on: ubuntu-24.04

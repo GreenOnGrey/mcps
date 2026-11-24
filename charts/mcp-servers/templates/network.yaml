@@ -17,7 +17,7 @@ metadata:
   labels: {{- include "mcp.labels" . | nindent 4 }}
 spec:
   podSelector:
-    matchExpressions: [{ key: app.kubernetes.io/name, operator: In, values: [docling-mcp, search, yandex-mail, docgen, jira, confluence, gitlab, clickhouse] }]
+    matchExpressions: [{ key: app.kubernetes.io/name, operator: In, values: [docling-mcp, search, yandex-mail, docgen, jira, confluence, gitlab, clickhouse, greenplum] }]
   policyTypes: [Ingress]
   ingress:
     - from:

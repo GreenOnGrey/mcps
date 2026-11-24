@@ -47,7 +47,7 @@ kubeconform_file() {
 # helm_args <enabled servers by valuesKey>: the chart values with these servers.
 helm_args() {
   local key on
-  for key in docling search yandexMail docgen jira confluence gitlab clickhouse; do
+  for key in docling search yandexMail docgen jira confluence gitlab clickhouse greenplum; do
     on=false
     [[ " $* " == *" $key "* ]] && on=true
     printf '%s\n' --set "$key.enabled=$on"
@@ -58,7 +58,7 @@ helm_args() {
 mcp_chart() {
   printf '\nChart mcp-servers\n'
   local combo dir f keys args=() missing deps want bad pols docs_pols
-  for combo in docling search yandex-mail docgen jira confluence gitlab clickhouse all; do
+  for combo in docling search yandex-mail docgen jira confluence gitlab clickhouse greenplum all; do
     case $combo in
       docling) keys=docling want="docling-mcp docling-serve " ;;
       search) keys=search want="search " ;;
@@ -68,8 +68,9 @@ mcp_chart() {
       confluence) keys=confluence want="confluence " ;;
       gitlab) keys=gitlab want="gitlab " ;;
       clickhouse) keys=clickhouse want="clickhouse " ;;
-      all) keys="docling search yandexMail docgen jira confluence gitlab clickhouse"
-        want="clickhouse confluence doc-convert docgen docling-mcp docling-serve gitlab jira search yandex-mail " ;;
+      greenplum) keys=greenplum want="greenplum " ;;
+      all) keys="docling search yandexMail docgen jira confluence gitlab clickhouse greenplum"
+        want="clickhouse confluence doc-convert docgen docling-mcp docling-serve gitlab greenplum jira search yandex-mail " ;;
     esac
     dir=$OUT/mcp-$combo
     mkdir -p "$dir"
@@ -106,7 +107,7 @@ mcp_chart() {
     else
       fail "SEC-04 $combo: egress-internet does not exclude private networks"
     fi
-    if [[ " yandex-mail jira confluence gitlab clickhouse " == *" $combo "* ]]; then
+    if [[ " yandex-mail jira confluence gitlab clickhouse greenplum " == *" $combo "* ]]; then
       # a personal server has no key of the platform: the credentials come in every request (FTR.INFRA.MCPS-0001 R2)
       if grep -q 'secretKeyRef' "$f"; then
         fail "STD-14 $combo: a personal server got a platform key"
@@ -188,7 +189,7 @@ image_tags() {
   local pair image version
   for pair in "docling-mcp=$DOCLING_MCP_VERSION" "imap-mcp=$IMAP_MCP_VERSION" "docgen-mcp=$DOCGEN_MCP_VERSION" \
     "doc-convert=$DOC_CONVERT_VERSION" "atlassian-mcp=$ATLASSIAN_MCP_VERSION" "gitlab-mcp=$GITLAB_MCP_VERSION" \
-    "clickhouse-mcp=$CLICKHOUSE_MCP_VERSION"; do
+    "clickhouse-mcp=$CLICKHOUSE_MCP_VERSION" "greenplum-mcp=$GREENPLUM_MCP_VERSION"; do
     image=${pair%%=*} version=${pair#*=}
     if grep -q "ghcr.io/greenongrey/$image:$version\$" "$CHART/values.yaml"; then
       pass "VER $image: $version"
