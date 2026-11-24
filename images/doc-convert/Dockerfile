@@ -29,7 +29,7 @@ COPY --from=lok /go/bin/lok /usr/bin/lok
 RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-recommends python3 \
       fonts-paratype fonts-montserrat \
  && rm -rf /var/lib/apt/lists/* && fc-cache -f \
- && fc-list : family | grep -qi montserrat
+ && fc-list : family | grep -qi montserrat   # FTR.NAB.CHAT-0006 qa, MNT-02
 COPY legacy.py registrymodifications.xcu /opt/doc-convert/
 LABEL org.opencontainers.image.version="${VERSION}"
 USER gotenberg

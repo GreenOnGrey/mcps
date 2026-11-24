@@ -7,7 +7,7 @@ ARG VERSION
 RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-recommends pandoc fontconfig \
       fonts-dejavu-core fonts-liberation2 fonts-paratype fonts-montserrat \
  && rm -rf /var/lib/apt/lists/* && fc-cache -f \
- && fc-list : family | grep -qi montserrat
+ && fc-list : family | grep -qi montserrat   # FTR.NAB.CHAT-0006 qa, MNT-01
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir --require-hashes --no-deps -r requirements.txt
