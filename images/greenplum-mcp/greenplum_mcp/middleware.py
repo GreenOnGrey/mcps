@@ -52,8 +52,12 @@ class CredentialsMiddleware(Middleware):
     """Puts the credentials of the request into the context of that call only."""
 
     async def on_call_tool(self, context, call_next):
-        # get_http_headers drops the transport headers and keeps the authorization of the request.
-        headers = get_http_headers()
+        # The authorization header is excluded by default: fastmcp 2.x keeps it, 3.x strips it
+        # unless it is named. Ask for it, and fall back for a version without the argument.
+        try:
+            headers = get_http_headers(include={AUTH_HEADER})
+        except TypeError:
+            headers = get_http_headers()
         credentials = parse_authorization(headers.get(AUTH_HEADER))
         if credentials is None:
             raise ToolError("authentication required: connect the item again in Connections")

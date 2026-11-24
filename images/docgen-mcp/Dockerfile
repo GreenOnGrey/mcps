@@ -1,7 +1,7 @@
 # docgen-mcp: the MCP server of documents (FTR.NAB.CHAT-0003 tech §2). The tag of the image is
 # DOCGEN_MCP_VERSION from config/versions.env. Pandoc and fonts are the same packages
 # as in the sandbox profile documents (the theme default on PT fonts; Montserrat is available for
-# documents that name it — FTR.NAB.CHAT-0005).
+# documents that name it — FTR.NAB.CHAT-0006).
 FROM python:3.12-slim-trixie
 ARG VERSION
 RUN apt-get update && apt-get -y upgrade && apt-get install -y --no-install-recommends pandoc fontconfig \
