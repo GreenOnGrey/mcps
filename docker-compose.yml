@@ -1,0 +1,309 @@
+# MCP servers of the stand on a local machine (FTR.INFRA.MCPS-0002 R14): the same images that go to
+# the stand, started by a profile. A server is personal: there is no key of the platform here and no
+# credential of a user — a client sends `Authorization: Bearer <login>:<password>` (or the token of
+# the system) with every request, and the server stores nothing.
+#
+#   cp .env.example .env
+#   docker compose --profile greenplum up --build      # one server
+#   docker compose --profile all up --build            # every server of the project
+#   docker compose up                                  # nothing: profiles are chosen explicitly
+#
+# Addresses, limits and URLs come from .env; image versions from config/versions.env (pass it with
+# `--env-file config/versions.env`, or rely on the defaults below). A server that cannot reach a
+# company system still starts: the failure is the answer of a tool, not a crash of the container.
+
+name: mcp-servers-local
+
+x-healthcheck: &healthcheck
+  test: ["CMD", "python", "-c", "import sys,urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).status == 200 else 1)"]
+  interval: 15s
+  timeout: 5s
+  retries: 3
+  start_period: 10s
+
+# Our own images (images/<name>): read-only root, no privileges, a non-root user, a restart policy.
+x-ours: &ours
+  read_only: true
+  tmpfs: ["/tmp"]
+  user: "10001"
+  restart: unless-stopped
+  security_opt: ["no-new-privileges:true"]
+
+services:
+  # ---------- SQL (FTR.INFRA.MCPS-0001, FTR.INFRA.MCPS-0002) ----------
+
+  greenplum:
+    profiles: ["greenplum", "all"]
+    <<: *ours
+    build:
+      context: ./images/greenplum-mcp
+      args: { VERSION: "${GREENPLUM_MCP_VERSION:-0.1.0}" }
+    image: greenplum-mcp:${GREENPLUM_MCP_VERSION:-0.1.0}
+    ports: ["8001:8000"]
+    environment:
+      GP_HOST: ${GP_HOST:-}
+      GP_PORT: ${GP_PORT:-5432}
+      GP_DB: ${GP_DB:-citydrive_db}
+      GP_SSLMODE: ${GP_SSLMODE:-prefer}
+      GP_CA_CERT: ${GP_CA_CERT:-}
+      GP_LIMIT_SECONDS: ${GP_LIMIT_SECONDS:-30}
+      GP_LIMIT_ROWS: ${GP_LIMIT_ROWS:-10000}
+    healthcheck: *healthcheck
+
+  clickhouse:
+    profiles: ["clickhouse", "all"]
+    <<: *ours
+    build:
+      context: ./images/clickhouse-mcp
+      args: { VERSION: "${CLICKHOUSE_MCP_VERSION:-0.1.0}" }
+    image: clickhouse-mcp:${CLICKHOUSE_MCP_VERSION:-0.1.0}
+    ports: ["8002:8000"]
+    environment:
+      CLICKHOUSE_HOST: ${CLICKHOUSE_HOST:-}
+      CLICKHOUSE_PORT: ${CLICKHOUSE_PORT:-8443}
+      CLICKHOUSE_SECURE: ${CLICKHOUSE_SECURE:-true}
+      CLICKHOUSE_VERIFY: ${CLICKHOUSE_VERIFY:-true}
+      # the upstream refuses to start without a configured user; the middleware replaces both per request
+      CLICKHOUSE_USER: mcp-placeholder
+      CLICKHOUSE_PASSWORD: placeholder
+      CLICKHOUSE_MCP_SERVER_TRANSPORT: http
+      CLICKHOUSE_MCP_BIND_HOST: 0.0.0.0
+      CLICKHOUSE_MCP_AUTH_DISABLED: "true"
+      CLICKHOUSE_MCP_QUERY_TIMEOUT: ${CLICKHOUSE_LIMIT_SECONDS:-30}
+      CLICKHOUSE_MCP_ALLOWED_HOSTS: ${CLICKHOUSE_HOST:-},localhost:8000,127.0.0.1:8000
+      CLICKHOUSE_LIMIT_SECONDS: ${CLICKHOUSE_LIMIT_SECONDS:-30}
+      CLICKHOUSE_LIMIT_ROWS: ${CLICKHOUSE_LIMIT_ROWS:-10000}
+      HOST: 0.0.0.0
+      PORT: "8000"
+    healthcheck: *healthcheck
+
+  # ---------- systems (FTR.INFRA.MCPS-0001) ----------
+
+  gitlab:
+    profiles: ["gitlab", "all"]
+    <<: *ours
+    build:
+      context: ./images/gitlab-mcp
+      args: { VERSION: "${GITLAB_MCP_VERSION:-0.1.0}" }
+    image: gitlab-mcp:${GITLAB_MCP_VERSION:-0.1.0}
+    ports: ["8003:8000"]
+    environment:
+      STREAMABLE_HTTP: "true"
+      # the token comes in the header of each request; there is no token of the stand
+      REMOTE_AUTHORIZATION: "true"
+      GITLAB_API_URL: ${GITLAB_URL:-}/api/v4
+      GITLAB_ALLOWED_HOSTS: ${GITLAB_HOST:-}
+      GITLAB_PERMISSION_MODE: readonly
+      GITLAB_TOOLSETS: "core,merge_requests,repositories,issues,ci,pipelines,projects,branches,search"
+      GITLAB_DOWNLOAD_DIR: /tmp/downloads
+      SESSION_TIMEOUT_SECONDS: "3600"
+      HOST: 0.0.0.0
+      PORT: "8000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8000/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  jira:
+    profiles: ["jira", "all"]
+    <<: *ours
+    build:
+      context: ./images/atlassian-mcp
+      args: { VERSION: "${ATLASSIAN_MCP_VERSION:-0.1.0}" }
+    image: atlassian-mcp:${ATLASSIAN_MCP_VERSION:-0.1.0}
+    ports: ["8004:8000"]
+    environment:
+      JIRA_URL: ${JIRA_URL:-}
+      JIRA_SSL_VERIFY: ${JIRA_SSL_VERIFY:-true}
+      READ_ONLY_MODE: "true"
+      MCP_ALLOWED_URL_DOMAINS: ${JIRA_HOST:-}
+      MCP_ATLASSIAN_USE_SYSTEM_TRUSTSTORE: "false"
+      # the upstream treats the service as configured only with a non-empty token
+      JIRA_PERSONAL_TOKEN: per-request
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys,urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3).status == 200 else 1)"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  confluence:
+    profiles: ["confluence", "all"]
+    <<: *ours
+    build:
+      context: ./images/atlassian-mcp
+      args: { VERSION: "${ATLASSIAN_MCP_VERSION:-0.1.0}" }
+    image: atlassian-mcp:${ATLASSIAN_MCP_VERSION:-0.1.0}
+    ports: ["8005:8000"]
+    environment:
+      CONFLUENCE_URL: ${CONFLUENCE_URL:-}
+      CONFLUENCE_SSL_VERIFY: ${CONFLUENCE_SSL_VERIFY:-true}
+      READ_ONLY_MODE: "true"
+      MCP_ALLOWED_URL_DOMAINS: ${CONFLUENCE_HOST:-}
+      MCP_ATLASSIAN_USE_SYSTEM_TRUSTSTORE: "false"
+      CONFLUENCE_PERSONAL_TOKEN: per-request
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys,urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3).status == 200 else 1)"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # ---------- documents (FTR.NAB.CHAT-0003) ----------
+
+  doc-convert:
+    profiles: ["docgen", "all"]
+    <<: *ours
+    build:
+      context: ./images/doc-convert
+      args:
+        VERSION: "${DOC_CONVERT_VERSION:-0.2.2}"
+        GOTENBERG_IMAGE: ${GOTENBERG_IMAGE:-gotenberg/gotenberg:9.9.2}
+    image: doc-convert:${DOC_CONVERT_VERSION:-0.2.2}
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://127.0.0.1:3000/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  docgen:
+    profiles: ["docgen", "all"]
+    <<: *ours
+    build:
+      context: ./images/docgen-mcp
+      args: { VERSION: "${DOCGEN_MCP_VERSION:-0.1.5}" }
+    image: docgen-mcp:${DOCGEN_MCP_VERSION:-0.1.5}
+    ports: ["8006:8000"]
+    environment:
+      # empty locally: Nabu puts the key of the item, the server checks it only when it is set
+      DOCGEN_KEY: ${DOCGEN_KEY:-}
+      DOC_CONVERT_URL: http://doc-convert:3000
+      DOC_CONVERT_LEGACY_URL: http://doc-convert:3001
+      # empty locally: doc-convert carries no basic auth, so docgen needs no pair of its own
+      DOC_CONVERT_USER: ${DOC_CONVERT_USER:-}
+      DOC_CONVERT_PASSWORD: ${DOC_CONVERT_PASSWORD:-}
+      DOCGEN_MAX_INLINE_MB: ${DOCGEN_MAX_INLINE_MB:-4}
+      DOCGEN_MAX_SOURCE_MB: ${DOCGEN_MAX_SOURCE_MB:-25}
+      DOCGEN_MAX_RESULT_MB: ${DOCGEN_MAX_RESULT_MB:-50}
+      DOCGEN_TIMEOUT_SECONDS: ${DOCGEN_TIMEOUT_SECONDS:-120}
+      DOCGEN_MAX_PAGES: ${DOCGEN_MAX_PAGES:-500}
+    depends_on:
+      doc-convert: { condition: service_started }
+    healthcheck: *healthcheck
+
+  # ---------- conversion of documents and scans (FTR.NAB.CMN-0006) ----------
+
+  docling-serve:
+    profiles: ["docling", "all"]
+    image: ${DOCLING_SERVE_IMAGE:-quay.io/docling-project/docling-serve-cpu:v1.37.0}
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    tmpfs: ["/tmp"]
+    environment:
+      DOCLING_SERVE_ENABLE_UI: "false"
+      DOCLING_SERVE_MAX_FILE_SIZE: "26214400"
+      DOCLING_SERVE_MAX_DOCUMENT_TIMEOUT: "300"
+      DOCLING_SERVE_ENG_LOC_NUM_WORKERS: "1"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys,urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:5001/health', timeout=5).status == 200 else 1)"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  docling:
+    profiles: ["docling", "all"]
+    <<: *ours
+    build:
+      context: ./images/docling-mcp
+      args: { VERSION: "${DOCLING_MCP_VERSION:-3.3.0}" }
+    image: docling-mcp:${DOCLING_MCP_VERSION:-3.3.0}
+    # the sidecar of the chart (a key of the platform) is left out locally: there is no key to check
+    command: ["--transport", "streamable-http", "--host", "0.0.0.0", "--port", "8000", "conversion", "generation", "manipulation"]
+    ports: ["8007:8000"]
+    environment:
+      DOCLING_MCP_CONVERSION_MODE: remote
+      DOCLING_MCP_SERVICE_URL: http://docling-serve:5001
+      DOCLING_MCP_FALLBACK_TO_LOCAL: "false"
+      DOCLING_MCP_OCR_LANG: ${DOCLING_OCR_LANG:-ru,en}
+      HOME: /tmp
+    depends_on:
+      docling-serve: { condition: service_started }
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket,sys; s=socket.socket(); sys.exit(0 if s.connect_ex(('127.0.0.1',8000))==0 else 1)"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  # ---------- mail (FTR.NAB.CMN-0006 R20–R22) ----------
+
+  yandex-mail:
+    profiles: ["yandex-mail", "all"]
+    <<: *ours
+    build:
+      context: ./images/imap-mcp
+      args: { VERSION: "${IMAP_MCP_VERSION:-0.2.3}" }
+    image: imap-mcp:${IMAP_MCP_VERSION:-0.2.3}
+    ports: ["8008:8000"]
+    environment:
+      IMAP_HOST: ${IMAP_HOST:-imap.yandex.com}
+      IMAP_PORT: "993"
+      USERINFO_URL: "https://login.yandex.ru/info?format=json"
+      USERINFO_AUTH: OAuth
+      USERINFO_FIELD: default_email
+      WEB_LINK: ${IMAP_WEB_LINK:-https://mail.yandex.ru/?uid={uid}#/search?request={subject}}
+      PORT: "8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket,sys; s=socket.socket(); sys.exit(0 if s.connect_ex(('127.0.0.1',8000))==0 else 1)"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ---------- web search (FTR.NAB.CMN-0006) ----------
+
+  searxng:
+    profiles: ["search", "all"]
+    image: ${SEARXNG_IMAGE:-searxng/searxng:2026.10.11-ad46ebd7d}
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    environment:
+      # a local value only: the instance is not exposed anywhere, and it is not a credential of a system
+      SEARXNG_SECRET: ${SEARXNG_SECRET:-local-only-not-a-secret}
+      SEARXNG_BASE_URL: http://localhost:8010/
+      FORCE_OWNERSHIP: "false"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  search:
+    profiles: ["search", "all"]
+    image: ${MCP_SEARXNG_IMAGE:-isokoliuk/mcp-searxng:2.6.0}
+    restart: unless-stopped
+    security_opt: ["no-new-privileges:true"]
+    tmpfs: ["/tmp"]
+    ports: ["8009:3000"]
+    environment:
+      SEARXNG_URL: http://searxng:8080
+      MCP_HTTP_PORT: "3000"
+      MCP_HTTP_HOST: 0.0.0.0
+      MCP_HTTP_HARDEN: "true"
+      MCP_HTTP_STATELESS: "true"
+      MCP_HTTP_ALLOW_PRIVATE_URLS: ${SEARCH_ALLOW_PRIVATE_URLS:-false}
+      # a key of the platform is not used locally: the stand puts it, here the port is loopback only
+      MCP_HTTP_AUTH_TOKEN: ${SEARCH_AUTH_TOKEN:-}
+    depends_on:
+      searxng: { condition: service_started }
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 20s

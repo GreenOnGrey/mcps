@@ -1,0 +1,65 @@
+{{- if .Values.greenplum.enabled }}
+# Read-only Greenplum (FTR.INFRA.MCPS-0002 R2, R3, R5): our own server. The personal token of the
+# request is "login:password" of a Greenplum user; the server opens a session only for reading,
+# sets statement_timeout and cuts the rows of an answer that is too long.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: greenplum
+  labels: {{- include "mcp.labels" . | nindent 4 }}
+    app.kubernetes.io/name: greenplum
+spec:
+  replicas: 1
+  selector: { matchLabels: { app.kubernetes.io/name: greenplum } }
+  template:
+    metadata:
+      labels: {{- include "mcp.labels" . | nindent 8 }}
+        app.kubernetes.io/name: greenplum
+    spec:
+      {{- include "mcp.podSecurity" . | nindent 6 }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: greenplum
+          image: {{ .Values.greenplum.image }}
+          ports: [{ name: http, containerPort: 8000 }]
+          env:
+            - { name: GP_HOST, value: {{ .Values.greenplum.host | quote }} }
+            - { name: GP_PORT, value: {{ .Values.greenplum.port | quote }} }
+            - { name: GP_DB, value: {{ .Values.greenplum.database | quote }} }
+            - { name: GP_SSLMODE, value: {{ .Values.greenplum.sslmode | quote }} }
+            - { name: GP_LIMIT_SECONDS, value: {{ .Values.greenplum.limits.querySeconds | quote }} }
+            - { name: GP_LIMIT_ROWS, value: {{ .Values.greenplum.limits.maxRows | quote }} }
+            - { name: HOST, value: 0.0.0.0 }
+            - { name: PORT, value: "8000" }
+            {{- with .Values.greenplum.caSecret }}
+            - { name: GP_CA_CERT, value: /etc/mcp-ca/ca.crt }
+            {{- end }}
+          # the readiness of the server is its listener, not the state of Greenplum: otherwise a
+          # database outage restarts a healthy pod and hides the reason from the agent (R11)
+          readinessProbe: { tcpSocket: { port: http }, periodSeconds: 10 }
+          livenessProbe: { tcpSocket: { port: http }, periodSeconds: 30 }
+          resources: {{- toYaml .Values.greenplum.resources | nindent 12 }}
+          {{- include "mcp.containerSecurity" . | nindent 10 }}
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+            {{- with .Values.greenplum.caSecret }}
+            - { name: ca, mountPath: /etc/mcp-ca, readOnly: true }
+            {{- end }}
+      volumes:
+        - { name: tmp, emptyDir: {} }
+        {{- with .Values.greenplum.caSecret }}
+        - name: ca
+          secret: { secretName: {{ . }}, defaultMode: 0444 }
+        {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: greenplum
+  labels: {{- include "mcp.labels" . | nindent 4 }}
+spec:
+  selector: { app.kubernetes.io/name: greenplum }
+  ports: [{ name: http, port: 8000, targetPort: http }]
+{{- end }}

@@ -51,11 +51,11 @@ yandexMail:
 # Gotenberg (LibreOffice and Chromium without a network) with the sidecar legacy.
 docgen:
   enabled: false
-  image: ghcr.io/greenongrey/docgen-mcp:0.1.4
+  image: ghcr.io/greenongrey/docgen-mcp:0.1.5
   resources: { requests: { cpu: 50m, memory: 256Mi }, limits: { cpu: "1", memory: 1Gi } }
   limits: { inlineMB: 4, sourceMB: 25, resultMB: 50, timeoutSeconds: 120, maxPages: 500 }
 docConvert:
-  image: ghcr.io/greenongrey/doc-convert:0.2.1
+  image: ghcr.io/greenongrey/doc-convert:0.2.2
   resources: { requests: { cpu: 100m, memory: 512Mi }, limits: { cpu: "2", memory: 2Gi } }
   legacy:
     resources: { requests: { cpu: 10m, memory: 128Mi }, limits: { cpu: "1", memory: 1Gi } }
@@ -98,6 +98,20 @@ clickhouse:
   secure: true
   caSecret: ""
   # readonly=1 goes with every query; these two bound the price of a mistake of the model.
+  limits: { querySeconds: 30, maxRows: 10000 }
+  resources: { requests: { cpu: 100m, memory: 256Mi }, limits: { cpu: "1", memory: 512Mi } }
+greenplum:
+  enabled: false
+  # FTR.INFRA.MCPS-0002: our own server (images/greenplum-mcp). The user connects with the login and
+  # password of a Greenplum user; the session is read-only, statement_timeout and the row limit come
+  # from limits below.
+  image: ghcr.io/greenongrey/greenplum-mcp:0.1.0
+  host: ""           # the master of Greenplum, required when enabled
+  port: 5432
+  database: citydrive_db
+  # prefer | require | verify-ca | verify-full; the last two together with caSecret
+  sslmode: prefer
+  caSecret: ""
   limits: { querySeconds: 30, maxRows: 10000 }
   resources: { requests: { cpu: 100m, memory: 256Mi }, limits: { cpu: "1", memory: 512Mi } }
 

@@ -12,10 +12,12 @@ charts/mcp-servers                the chart; one release, namespace mcp
 charts/mcp-servers/files/servers  description of each server, read by installer with jq
 charts/mcp-servers/files/dashboard.json   Grafana dashboard
 images/<image>                    docling-mcp, imap-mcp, docgen-mcp, doc-convert, atlassian-mcp,
-                                  gitlab-mcp, clickhouse-mcp; each has images/<image>/test.sh
+                                  gitlab-mcp, clickhouse-mcp, greenplum-mcp; each has images/<image>/test.sh
 images/publish.sh                 build, test, scan and push of the images
 config/versions.env               versions of images and tools
+docker-compose.yml                the local run: one profile per server, no credentials in the file
 tests/manifests.sh                checks of the chart and the descriptions
+tests/compose.sh                  checks of the local run
 ```
 
 ## Checks before a commit
@@ -24,6 +26,7 @@ A change is ready when every job of `.github/workflows/checks.yml` passes locall
 
 - Always: `shellcheck` on the file list of `checks.yml`, `actionlint`.
 - `charts/**`, `config/**`: `bash tests/manifests.sh`.
+- `docker-compose.yml`, `.env.example`: `bash tests/compose.sh`.
 - `images/**`: `images/publish.sh --test-only`.
 - A chart change also has to survive an upgrade of the live release, which `helm template` cannot show. Compare with `kubectl patch --dry-run=server` on the live resource.
 - Always, after the checks pass: run the `code-review` skill on the diff to be committed. Fix each finding, or name it in your report with the reason it stays. Ask the user when you doubt a finding.
@@ -34,6 +37,7 @@ A change is ready when every job of `.github/workflows/checks.yml` passes locall
 - Scripts are `set -euo pipefail`.
 - **Images are published once per version**: `images/publish.sh` skips a tag that exists. A change of `images/imap-mcp` needs a new `IMAP_MCP_VERSION` (`DOCGEN_MCP_VERSION`, `DOC_CONVERT_VERSION` for the others) and the same tag in `charts/mcp-servers/values.yaml`, or a stand keeps running the old image.
 - **The chart's values are what gets installed.** `installer` passes no image tags. `tests/manifests.sh` checks that they match `config/versions.env`.
+- **A new server goes into `docker-compose.yml` in the same change**: a service with a profile named after the server, its own host port, a healthcheck and the environment of the chart; `tests/compose.sh` fails until it is there. The local run is how a server is checked before a stand, and a server missing from it is a server nobody runs by hand.
 - **A server's description is a contract with `installer`**: `name`, `valuesKey`, `service`, `deployments`, `secrets`, `keySecret`, `wantTools`, `oauth`, `token`, `catalogHint`. The file name equals `name`. A new server needs `<valuesKey>.enabled: false` in the values. `installer` enables it with the option `MCP_<NAME>`.
 - The release name `mcp-servers` and the namespace `mcp` stay: a live stand upgrades in place.
 - Keys come from Secrets of the namespace, never from values.

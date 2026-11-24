@@ -1,0 +1,4 @@
+# The MCP framework of the server and the driver of Greenplum (FTR.INFRA.MCPS-0002).
+# fastmcp is the same family as in clickhouse-mcp: our gate and middleware use its middleware API.
+fastmcp==2.14.7
+psycopg2-binary==2.9.13
