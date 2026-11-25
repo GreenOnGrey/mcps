@@ -7,7 +7,7 @@ ARG VERSION
 ARG MCP_ATLASSIAN_VERSION=0.24.6
 WORKDIR /app
 # Security fixes of the base image: a fixable HIGH blocks a release (images/publish.sh scans with Trivy).
-RUN apt-get update && apt-get install -y --only-upgrade zlib1g && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --only-upgrade zlib1g libzstd1 && rm -rf /var/lib/apt/lists/*
 RUN pip install --no-cache-dir "mcp-atlassian==${MCP_ATLASSIAN_VERSION}"
 # The upstream writes attachments and caches to HOME: /tmp is the only writable place of the container.
 # truststore is off: it replaces the SSL context of the process and breaks a private CA bundle,

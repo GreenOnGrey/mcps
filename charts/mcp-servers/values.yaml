@@ -39,7 +39,7 @@ search:
 yandexMail:
   enabled: false
   # Our own read-only IMAP server (images/imap-mcp), the tag is its VERSION.
-  image: ghcr.io/greenongrey/imap-mcp:0.2.3
+  image: ghcr.io/greenongrey/imap-mcp:0.2.4
   imapHost: imap.yandex.com
   # The link to a message: a search by subject in the mailbox of the user ({uid} — the number of the
   # account, {subject} — the subject without Re:/Fwd:, {msgid} — the Message-ID without angle brackets).
@@ -68,7 +68,7 @@ docConvert:
 # cloud | dc: Cloud signs users in by OAuth 2.0 (3LO), Data Center by a personal access token.
 jira:
   enabled: false
-  image: ghcr.io/greenongrey/atlassian-mcp:0.1.0
+  image: ghcr.io/greenongrey/atlassian-mcp:0.1.1
   url: ""
   authMode: cloud
   cloudId: ""
@@ -77,7 +77,7 @@ jira:
   resources: { requests: { cpu: 100m, memory: 512Mi }, limits: { cpu: "1", memory: 1Gi } }
 confluence:
   enabled: false
-  image: ghcr.io/greenongrey/atlassian-mcp:0.1.0
+  image: ghcr.io/greenongrey/atlassian-mcp:0.1.1
   url: ""
   authMode: cloud
   cloudId: ""
@@ -92,7 +92,7 @@ gitlab:
   resources: { requests: { cpu: 50m, memory: 256Mi }, limits: { cpu: 500m, memory: 512Mi } }
 clickhouse:
   enabled: false
-  image: ghcr.io/greenongrey/clickhouse-mcp:0.1.0
+  image: ghcr.io/greenongrey/clickhouse-mcp:0.1.1
   host: ""
   port: 8443
   secure: true
@@ -105,7 +105,7 @@ greenplum:
   # FTR.INFRA.MCPS-0002: our own server (images/greenplum-mcp). The user connects with the login and
   # password of a Greenplum user; the session is read-only, statement_timeout and the row limit come
   # from limits below.
-  image: ghcr.io/greenongrey/greenplum-mcp:0.1.0
+  image: ghcr.io/greenongrey/greenplum-mcp:0.1.1
   host: ""           # the master of Greenplum, required when enabled
   port: 5432
   database: citydrive_db
