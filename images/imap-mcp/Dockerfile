@@ -4,7 +4,7 @@ FROM python:3.12-slim-trixie
 ARG VERSION
 WORKDIR /app
 # Security fixes of the base image: a fixable HIGH blocks a release (images/publish.sh scans with Trivy).
-RUN apt-get update && apt-get install -y --only-upgrade zlib1g && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --only-upgrade zlib1g libzstd1 && rm -rf /var/lib/apt/lists/*
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY imap_core.py server.py test_imap_core.py test_server.py ./
