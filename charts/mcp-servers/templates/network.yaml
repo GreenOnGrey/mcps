@@ -71,9 +71,10 @@ spec:
         - ipBlock:
             cidr: 0.0.0.0/0
             except: [10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16, 100.64.0.0/10, 127.0.0.0/8]
-    # Networks of the company that the servers must reach besides the internet: a site of the company network,
-    # which the web search would otherwise not open, its address being inside the ranges above. Ports are not
-    # restricted: an administrator names the networks, and the company keeps its sites on ports of its own choice.
+    # Networks of the company that the servers must reach besides the internet (FTR.INFRA.INST-0001 R21): the
+    # systems of the personal servers. The web search does not use them — it reads pages through DeepSeek
+    # (FTR.INFRA.MCPS-0003 R7). Ports are not restricted: an administrator names the networks, and the company
+    # keeps its sites on ports of its own choice.
     {{- range .Values.egressAllow }}
     - to: [{ ipBlock: { cidr: {{ . | quote }} } }]
     {{- end }}
@@ -151,8 +152,25 @@ spec:
     - from:
         - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: observability } }
       ports: [{ port: 8000 }]
----
 {{- end }}
+{{- if .Values.search.enabled }}
+---
+# vmagent from observability takes the metrics of the web search, only the port of the server
+# (FTR.INFRA.MCPS-0003 arch §7).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: metrics-search
+  labels: {{- include "mcp.labels" . | nindent 4 }}
+spec:
+  podSelector: { matchLabels: { app.kubernetes.io/name: search } }
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector: { matchLabels: { kubernetes.io/metadata.name: observability } }
+      ports: [{ port: 8000 }]
+{{- end }}
+---
 # The probe pod of the checks of the stand goes to the servers of the namespace.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy

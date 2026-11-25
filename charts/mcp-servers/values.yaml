@@ -20,21 +20,15 @@ docling:
     image: nginxinc/nginx-unprivileged:1.31-alpine
     resources: { requests: { cpu: 10m, memory: 16Mi }, limits: { cpu: 200m, memory: 64Mi } }
 
+# Web search (FTR.INFRA.MCPS-0003): our own server over the DeepSeek Search and Fetch APIs.
+# The key is not a value of the chart: installer puts MCP_SEARCH_KEY into the Secret mcp-deepseek-key.
 search:
   enabled: false
-  mcp:
-    image: isokoliuk/mcp-searxng:2.6.0
-    resources: { requests: { cpu: 20m, memory: 128Mi }, limits: { cpu: 500m, memory: 256Mi } }
-  searxng:
-    image: searxng/searxng:2026.10.11-ad46ebd7d
-    resources: { requests: { cpu: 50m, memory: 256Mi }, limits: { cpu: "1", memory: 512Mi } }
-  # Search engines of SearXNG (decision 3: no Google, which blocks data center IPs fastest). Brave stays out
-  # as well: from the address of a data center it answers «too many requests» within a day of a stand.
-  engines: [duckduckgo, bing, wikipedia, github, stackoverflow, arxiv]
-  # web_url_read of mcp-searxng reads a URL only when its address is public. A site of the company network
-  # resolves into a private range, so reading it needs this on, together with its network in egressAllow:
-  # the network is not reachable before the policy opens it. The installer sets it from MCP_EGRESS_ALLOW.
-  allowPrivateUrls: false
+  image: ghcr.io/greenongrey/search-mcp:0.1.0
+  # https:// only: a corporate mirror or proxy is allowed, plain http is not. The loopback http
+  # exists for the test of the image alone.
+  url: https://api.deepseek.com
+  resources: { requests: { cpu: 20m, memory: 128Mi }, limits: { cpu: 500m, memory: 256Mi } }
 
 yandexMail:
   enabled: false
@@ -122,9 +116,9 @@ callers:
   namespace: nabu
   name: nabu
   components: [api, worker, agent]
-# Networks of the company the servers reach besides the internet, as CIDRs: web search opens a site of the
-# company network only when its network is here, because the private ranges are closed to the servers by
-# default (FTR.NAB.CMN-0006). An administrator names them: such as [10.20.30.0/24].
+# Networks of the company the servers reach besides the internet, as CIDRs: the private ranges are closed to the
+# servers by default (FTR.INFRA.INST-0001 R21). An administrator names them: such as [10.20.30.0/24]. The web
+# search goes through DeepSeek and does not use the list (FTR.INFRA.MCPS-0003 R7).
 egressAllow: []
 # S3 of the stand: copies of workspace files for document parsing (R14).
 s3:

@@ -7,7 +7,7 @@ server: Nabu shows its methods (tools) to the agent of a user, the agent calls t
 | Server | What it does | Methods in the catalog | Access |
 | --- | --- | --- | --- |
 | [`docling`](#docling) | Converts documents to structured text and Markdown | 5 | Platform key |
-| [`search`](#search) | Web search through SearXNG and reading a page | 2 | Platform key |
+| [`search`](#search) | Web search through DeepSeek Search and Fetch | 2 | Platform key |
 | [`yandex-mail`](#yandex-mail) | Reads a Yandex Mail mailbox over IMAP, read-only | 4 | Personal OAuth |
 | [`docgen`](#docgen) | Creates, fills, edits and converts documents and PDFs | 6 | Platform key |
 | [`jira`](#jira-and-confluence) | Reads Jira issues, projects, boards and sprints, read-only | 37 | Personal OAuth (Cloud) or token (Data Center) |
@@ -16,8 +16,10 @@ server: Nabu shows its methods (tools) to the agent of a user, the agent calls t
 | [`clickhouse`](#clickhouse) | Runs read-only `SELECT` queries | 3 | Personal login and password |
 | [`greenplum`](#greenplum) | Runs read-only `SELECT` queries, reads schemas, tables, columns and view definitions | 5 | Personal login and password |
 
-Every server sits behind the auth proxy of the chart (`nginx`): the platform servers check the platform
-key, the personal ones pass the token of the user in the request header and keep nothing.
+# Every server authenticates the caller before the MCP transport: the platform servers check the platform key,
+# the personal ones pass the token of the user in the request header and keep nothing. The auth proxy of the
+# chart (`nginx`) stands before the servers that have no check of their own (docling); docgen and search check
+# the key in process.
 
 The number is the default set of a catalog position of Nabu (`catalogHint.allowedTools` in
 `charts/mcp-servers/files/servers/<server>.json`): an administrator allows more or fewer of the methods
@@ -41,13 +43,14 @@ parsed once, then the agent reads it by anchors instead of loading the whole tex
 
 ### `search`
 
-Upstream [mcp-searxng](https://github.com/ihor-sokoliuk/mcp-searxng) 2.6.0 over the stand's
-[SearXNG](https://searxng.github.io/): no search engine account, and the engines are a setting of the stand.
+Our own [search-mcp](images/search-mcp) over the [DeepSeek Search and Fetch APIs](https://api-docs.deepseek.com/guides/search):
+a paid key of the stand, results with a date, an authority score and a summary for the model, a page as Markdown,
+and public addresses only — the vendor cannot reach the company network.
 
 | Method | Arguments | What it does |
 | --- | --- | --- |
-| `searxng_web_search` | `query`, `pageno` | Searches the web: title, address and a fragment of each result |
-| `web_url_read` | `url`, `startChar`, `maxLength` | Reads a page as text; a private address needs `allowPrivateUrls` and its network in `egressAllow` |
+| `web_search` | `query` (1–128 characters, operators `site:`, `lang:`, `after:` inside), `count` (1–50, 10 by default), `need_content` | Searches the web: title, address, `snippet`, `summary`, date, site name, relevance and authority |
+| `web_fetch` | `url` | Reads one public page as Markdown; an internal address cannot be read |
 
 ### `yandex-mail`
 
@@ -142,7 +145,7 @@ helm install mcp-servers oci://ghcr.io/greenongrey/charts/mcp-servers \
   --version <version> -n mcp --create-namespace --set docling.enabled=true
 ```
 
-The platform servers expect their access keys as Secrets in the chart namespace. `installer` creates them, so with plain Helm you create them yourself: their names are listed under `secrets` in `charts/mcp-servers/files/servers/<server>.json`.
+The platform servers expect their access keys as Secrets in the chart namespace. `installer` creates them, so with plain Helm you create them yourself: their names are listed under `secrets` in `charts/mcp-servers/files/servers/<server>.json`. The web search is the exception: its `mcp-deepseek-key` comes from the operator (`MCP_SEARCH_KEY`), and the description names the parameter under `configSecrets` — create that Secret with the DeepSeek key before `helm install`.
 
 The personal servers (`yandex-mail`, `jira`, `confluence`, `gitlab`, `clickhouse`, `greenplum`) have no key and no Secret: the token of the user comes in the header of every request from the proxy of Nabu, and the server keeps nothing. They do need the address of the company system, which is a setting of the stand — `jira.url`, `confluence.url`, `gitlab.url`, `clickhouse.host`, `greenplum.host` — and, for a system inside the company network, its network in `egressAllow`.
 
@@ -153,7 +156,7 @@ charts/mcp-servers/             the Helm chart
 charts/mcp-servers/files/servers/<server>.json   description of a server, read by installer
 charts/mcp-servers/files/dashboard.json          Grafana dashboard
 images/<image>/                 images built here: docling-mcp, imap-mcp, docgen-mcp, doc-convert,
-                                atlassian-mcp, gitlab-mcp, clickhouse-mcp, greenplum-mcp
+                                atlassian-mcp, gitlab-mcp, clickhouse-mcp, greenplum-mcp, search-mcp
 config/versions.env             image and tool versions
 docker-compose.yml              the local run: a profile per server, no credentials in the file
 tests/manifests.sh              checks of the chart
@@ -170,6 +173,7 @@ The upstream packages are pinned in `images/<image>/Dockerfile`; the images them
 | `gitlab-mcp` | `@zereight/mcp-gitlab` | `REMOTE_AUTHORIZATION` takes the token per request; the built-in `/api/v4/mcp` of GitLab needs 19.5 |
 | `clickhouse-mcp` | `mcp-clickhouse` | Our middleware turns the personal token into the credentials of a query and adds `readonly=1` |
 | `greenplum-mcp` | our own | There is no upstream with per-request credentials, a read-only session, the row limit and `pg_get_viewdef` at once; the server is `images/greenplum-mcp` |
+| `search-mcp` | our own | There is no MCP server for the DeepSeek Search and Fetch APIs: they are raw JSON; the server is `images/search-mcp` |
 
 ## Run a server locally
 

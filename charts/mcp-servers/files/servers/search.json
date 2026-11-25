@@ -5,15 +5,24 @@
   "deployments": [
     "search"
   ],
-  "secrets": [
-    "mcp-search-key",
-    "mcp-searxng-secret"
+  "secrets": [],
+  "configSecrets": [
+    {
+      "secret": "mcp-deepseek-key",
+      "key": "key",
+      "option": "MCP_SEARCH_KEY"
+    }
   ],
-  "keySecret": "mcp-search-key",
+  "keySecret": "mcp-deepseek-key",
   "wantTools": [
-    "searxng_web_search",
-    "web_url_read"
+    "web_search",
+    "web_fetch"
   ],
   "oauth": null,
-  "catalogHint": null
+  "catalogHint": {
+    "allowedTools": [
+      "web_search",
+      "web_fetch"
+    ]
+  }
 }

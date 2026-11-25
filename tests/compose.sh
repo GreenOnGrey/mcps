@@ -8,7 +8,7 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 FAILURES=0
 # The servers of the project: images/ and files/servers/. A new server has to appear here as well.
-EXPECTED_ALL="clickhouse confluence doc-convert docgen docling docling-serve gitlab greenplum jira search searxng yandex-mail"
+EXPECTED_ALL="clickhouse confluence doc-convert docgen docling docling-serve gitlab greenplum jira search yandex-mail"
 
 fail() { printf '  ✗ %s\n' "$*"; FAILURES=$((FAILURES + 1)); }
 pass() { printf '  ✓ %s\n' "$*"; }

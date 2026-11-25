@@ -1,0 +1,8 @@
+# Web search MCP server of the stand (FTR.INFRA.MCPS-0003).
+# fastmcp is the same family as in greenplum-mcp: the ASGI gate and the tools use its API.
+# httpx is the client of the DeepSeek Search and Fetch APIs; prometheus-client serves /metrics.
+# 4.2.5: the CVE of fastmcp 2.x (an SSRF through the OpenAPI of an OAuth proxy) is fixed there;
+# the image is scanned at the release and a fixable HIGH blocks it.
+fastmcp==4.2.5
+httpx==0.28.1
+prometheus-client==0.26.0

@@ -114,25 +114,30 @@ mcp_chart() {
       else
         pass "STD-14 $combo: no key of the platform, credentials come with the request"
       fi
-    elif grep -Eq '(mcp-[a-z-]+-key|searxng-secret)' "$f" && ! grep -Eq 'value: "?[0-9a-f]{64}' "$f"; then
+    elif grep -Eq 'mcp-[a-z-]+-key' "$f" && ! grep -Eq 'value: "?[0-9a-f]{64}' "$f"; then
       pass "STD-14 $combo: keys only from secrets"
     else
       fail "STD-14 $combo: keys not from secrets"
     fi
   done
-  # A site of the company network: web_url_read of mcp-searxng opens a URL only when its address is public, so
-  # reading such a site needs allowPrivateUrls with the network (FTR.NAB.CMN-0006).
   if docs_json "$OUT/mcp-search/mcp-servers.yaml" | jq -e 'select(.kind == "Deployment" and .metadata.name == "search")
-      | .spec.template.spec.containers[] | select(.name == "mcp-searxng")
-      | .env[] | select(.name == "MCP_HTTP_ALLOW_PRIVATE_URLS") | .value == "false"' >/dev/null &&
-    helm template mcp-servers "$CHART" -n mcp --kube-version "$KUBE_VERSION" --set search.enabled=true \
-      --set search.allowPrivateUrls=true --set-string s3.namespace=storages 2>/dev/null |
-    docs_json /dev/stdin | jq -e 'select(.kind == "Deployment" and .metadata.name == "search")
-      | .spec.template.spec.containers[] | select(.name == "mcp-searxng")
-      | .env[] | select(.name == "MCP_HTTP_ALLOW_PRIVATE_URLS") | .value == "true"' >/dev/null; then
-    pass "SEC-09: MCP_HTTP_ALLOW_PRIVATE_URLS is off by default and follows search.allowPrivateUrls"
+      | [.spec.template.spec.containers[0].env[] | select(.name == "SEARCH_KEY") | .valueFrom.secretKeyRef.name] == ["mcp-deepseek-key"]' >/dev/null; then
+    pass "STD-14 search: the key comes from mcp-deepseek-key"
   else
-    fail "SEC-09: MCP_HTTP_ALLOW_PRIVATE_URLS does not follow search.allowPrivateUrls"
+    fail "STD-14 search: the key does not come from mcp-deepseek-key"
+  fi
+  # Web search: our own server over DeepSeek; SearXNG, its sidecar and the switch of private addresses are
+  # gone (FTR.INFRA.MCPS-0003). The key comes from the Secret mcp-deepseek-key, the address from the values.
+  if docs_json "$OUT/mcp-search/mcp-servers.yaml" | jq -e 'select(.kind == "Deployment" and .metadata.name == "search")
+      | (.spec.template.spec.containers | length == 1)
+        and (.spec.template.spec.containers[0].name == "search-mcp")
+        and ([.spec.template.spec.containers[0].env[] | .name] | index("SEARCH_URL") != null)
+        and ([.spec.template.spec.containers[0].env[] | .name] | map(select(startswith("MCP_HTTP"))) | length == 0)' >/dev/null &&
+    ! grep -q 'searxng' "$OUT/mcp-search/mcp-servers.yaml" &&
+    ! grep -q 'allowPrivateUrls' "$CHART/values.yaml" "$CHART/templates/search.yaml"; then
+    pass "SRC-06: one container search-mcp, SEARCH_URL in env, no SearXNG and no private addresses"
+  else
+    fail "SRC-06: the search server still carries SearXNG or its settings"
   fi
   # The networks of the company, besides the internet: a site of the company network is open to the servers
   # only through them (FTR.NAB.CMN-0006).
@@ -146,12 +151,11 @@ mcp_chart() {
   else
     fail "SEC-07: egressAllow does not reach the policy egress-internet"
   fi
-  if docs_json "$OUT/mcp-search/mcp-servers.yaml" | jq -r 'select(.kind == "ConfigMap" and .metadata.name == "searxng-settings") | .data["settings.yml"]' |
-    yq -e '.server.limiter == false and (.use_default_settings.engines.keep_only | length) == 6 and (.use_default_settings.engines.keep_only | contains(["google"]) | not)
-      and ([.engines[] | select(.disabled == false) | .name] | join(",")) == (.use_default_settings.engines.keep_only | join(","))' >/dev/null; then
-    pass "SRC-06: SearXNG: the listed engines are on explicitly, no Google, the limiter is off"
+  if docs_json "$OUT/mcp-search/mcp-servers.yaml" | jq -e 'select(.kind == "Deployment" and .metadata.name == "search")
+      | .spec.template.spec.containers[0].env[] | select(.name == "SEARCH_URL") | .value | startswith("https://")' >/dev/null; then
+    pass "SRC-09: the address of the search API is https"
   else
-    fail "SRC-06: settings of SearXNG"
+    fail "SRC-09: the search API address is not https"
   fi
 }
 
@@ -163,7 +167,9 @@ descriptions() {
     name=$(basename "$d" .json)
     if ! jq -e --arg n "$name" '.name == $n and (.valuesKey | type) == "string" and (.service | test("^[a-z0-9-]+:[0-9]+$"))
         and (.deployments | type == "array" and length > 0) and (.secrets | type) == "array" and (.wantTools | type) == "array"
-        and (.keySecret == null or (.keySecret as $k | .secrets | index($k) != null))
+        and (.keySecret == null or (.keySecret as $k | (.secrets | index($k) != null) or ((.configSecrets // []) | map(.secret) | index($k) != null)))
+        and ((.configSecrets // []) | type == "array")
+        and (((.configSecrets // []) | map(select((.secret | type) == "string" and (.key | type) == "string" and (.option | test("^MCP_[A-Z0-9_]+$")))) | length) == ((.configSecrets // []) | length))
         and (.token == null or ((.token | type) == "object" and (.token.hint | type) == "string"
           and (.token.header | type) == "string" and (.token.prefix | type) == "string"))
         and (.keySecret != null or .oauth != null or .token != null)' "$d" >/dev/null; then
@@ -189,7 +195,7 @@ image_tags() {
   local pair image version
   for pair in "docling-mcp=$DOCLING_MCP_VERSION" "imap-mcp=$IMAP_MCP_VERSION" "docgen-mcp=$DOCGEN_MCP_VERSION" \
     "doc-convert=$DOC_CONVERT_VERSION" "atlassian-mcp=$ATLASSIAN_MCP_VERSION" "gitlab-mcp=$GITLAB_MCP_VERSION" \
-    "clickhouse-mcp=$CLICKHOUSE_MCP_VERSION" "greenplum-mcp=$GREENPLUM_MCP_VERSION"; do
+    "clickhouse-mcp=$CLICKHOUSE_MCP_VERSION" "greenplum-mcp=$GREENPLUM_MCP_VERSION" "search-mcp=$SEARCH_MCP_VERSION"; do
     image=${pair%%=*} version=${pair#*=}
     if grep -q "ghcr.io/greenongrey/$image:$version\$" "$CHART/values.yaml"; then
       pass "VER $image: $version"
