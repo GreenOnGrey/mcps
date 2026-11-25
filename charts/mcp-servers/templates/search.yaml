@@ -1,36 +1,7 @@
 {{- if .Values.search.enabled }}
-# Web search (FTR.NAB.CMN-0006 R10): mcp-searxng with a key and SearXNG as a sidecar on
-# 127.0.0.1: it is not visible outside the pod, so the limiter and Valkey are not needed (decision 4).
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: searxng-settings
-  labels: {{- include "mcp.labels" . | nindent 4 }}
-data:
-  settings.yml: |
-    use_default_settings:
-      engines:
-        keep_only: {{ toJson .Values.search.engines }}
-    # keep_only does not turn on engines that are off by default (bing has disabled: true);
-    # each listed engine is turned on explicitly.
-    engines:
-      {{- range .Values.search.engines }}
-      - { name: {{ . | quote }}, disabled: false }
-      {{- end }}
-    general:
-      instance_name: "Hammurapi stand"
-      enable_metrics: false
-    server:
-      limiter: false
-      public_instance: false
-      image_proxy: false
-      method: GET
-    search:
-      safe_search: 0
-      formats: [html, json]
-    outgoing:
-      request_timeout: 5.0
----
+# Web search (FTR.INFRA.MCPS-0003): one container over the DeepSeek Search and Fetch APIs. The key
+# comes from the Secret mcp-deepseek-key, which installer fills from MCP_SEARCH_KEY; the address of
+# the API is the setting of the stand. SearXNG and its sidecar are gone with the old server.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -45,56 +16,33 @@ spec:
       labels: {{- include "mcp.labels" . | nindent 8 }}
         app.kubernetes.io/name: search
       annotations:
-        checksum/settings: {{ toJson .Values.search.engines | sha256sum | trunc 16 }}
+        checksum/url: {{ .Values.search.url | sha256sum | trunc 16 }}
+        # metrics search_* of the server (the dashboard "MCP servers", the section "Web search")
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
     spec:
       {{- include "mcp.podSecurity" . | nindent 6 }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets: {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
-        - name: mcp-searxng
-          image: {{ .Values.search.mcp.image }}
-          ports: [{ name: http, containerPort: 3000 }]
+        - name: search-mcp
+          image: {{ .Values.search.image }}
+          ports: [{ name: http, containerPort: 8000 }]
           env:
-            - { name: SEARXNG_URL, value: "http://127.0.0.1:8080" }
-            - { name: MCP_HTTP_PORT, value: "3000" }
-            - { name: MCP_HTTP_HOST, value: "0.0.0.0" }
-            - { name: MCP_HTTP_HARDEN, value: "true" }
-            - { name: MCP_HTTP_AUTH_TOKEN, valueFrom: { secretKeyRef: { name: mcp-search-key, key: key } } }
-            - { name: MCP_HTTP_STATELESS, value: "true" }
-            # With MCP_HTTP_HARDEN the server does not start without a list of Origin. Requests without Origin
-            # (the Nabu proxy, the checks of the stand) pass with any list; browsers have nothing to do here.
-            - { name: MCP_HTTP_ALLOWED_ORIGINS, value: "http://127.0.0.1" }
-            # The Host with which the Nabu proxy and the checks of the stand come.
-            - name: MCP_HTTP_ALLOWED_HOSTS
-              value: "search.{{ .Release.Namespace }}.svc:3000,search.{{ .Release.Namespace }}.svc.cluster.local:3000,search.{{ .Release.Namespace }}:3000,search:3000,127.0.0.1:3000,localhost:3000"
-            # web_url_read opens a URL only when its address is public: a site of the company network resolves
-            # into a private range, and the server refuses it before any packet. The installer turns this on
-            # when it opens the networks of the company to the servers (egressAllow).
-            - { name: MCP_HTTP_ALLOW_PRIVATE_URLS, value: {{ .Values.search.allowPrivateUrls | quote }} }
+            - { name: SEARCH_KEY, valueFrom: { secretKeyRef: { name: mcp-deepseek-key, key: key } } }
+            - { name: SEARCH_URL, value: {{ .Values.search.url | quote }} }
+            - { name: SEARCH_TIMEOUT_SECONDS, value: "30" }
+            - { name: SEARCH_MAX_CONTENT_BYTES, value: "102400" }
+            - { name: SEARCH_RETRIES, value: "2" }
+            - { name: PORT, value: "8000" }
+            - { name: HOST, value: "0.0.0.0" }
           readinessProbe: { tcpSocket: { port: http }, periodSeconds: 10 }
-          resources: {{- toYaml .Values.search.mcp.resources | nindent 12 }}
+          livenessProbe: { tcpSocket: { port: http }, periodSeconds: 20 }
+          resources: {{- toYaml .Values.search.resources | nindent 12 }}
           {{- include "mcp.containerSecurity" . | nindent 10 }}
           volumeMounts: [{ name: tmp, mountPath: /tmp }]
-        - name: searxng
-          image: {{ .Values.search.searxng.image }}
-          env:
-            - { name: GRANIAN_HOST, value: "127.0.0.1" }
-            - { name: SEARXNG_PORT, value: "8080" }
-            - { name: SEARXNG_SECRET, valueFrom: { secretKeyRef: { name: mcp-searxng-secret, key: key } } }
-            - { name: FORCE_OWNERSHIP, value: "false" }
-          resources: {{- toYaml .Values.search.searxng.resources | nindent 12 }}
-          securityContext:
-            runAsNonRoot: true
-            runAsUser: 977
-            runAsGroup: 977
-            allowPrivilegeEscalation: false
-            readOnlyRootFilesystem: true
-            capabilities: { drop: [ALL] }
-          volumeMounts:
-            - { name: settings, mountPath: /etc/searxng }
-            - { name: cache, mountPath: /var/cache/searxng }
-            - { name: tmp, mountPath: /tmp }
       volumes:
-        - { name: settings, configMap: { name: searxng-settings } }
-        - { name: cache, emptyDir: {} }
         - { name: tmp, emptyDir: {} }
 ---
 apiVersion: v1

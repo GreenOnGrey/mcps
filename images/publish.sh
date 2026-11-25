@@ -24,8 +24,8 @@ fi
 # doc-convert builds before docgen-mcp: the test of docgen-mcp runs together with it (FTR.NAB.CHAT-0003).
 declare -A VERSIONS=([docling-mcp]=$DOCLING_MCP_VERSION [imap-mcp]=$IMAP_MCP_VERSION
   [atlassian-mcp]=$ATLASSIAN_MCP_VERSION [gitlab-mcp]=$GITLAB_MCP_VERSION [clickhouse-mcp]=$CLICKHOUSE_MCP_VERSION [greenplum-mcp]=$GREENPLUM_MCP_VERSION
-  [doc-convert]=$DOC_CONVERT_VERSION [docgen-mcp]=$DOCGEN_MCP_VERSION)
-for name in docling-mcp imap-mcp atlassian-mcp gitlab-mcp clickhouse-mcp greenplum-mcp doc-convert docgen-mcp; do
+  [search-mcp]=$SEARCH_MCP_VERSION [doc-convert]=$DOC_CONVERT_VERSION [docgen-mcp]=$DOCGEN_MCP_VERSION)
+for name in docling-mcp imap-mcp atlassian-mcp gitlab-mcp clickhouse-mcp greenplum-mcp search-mcp doc-convert docgen-mcp; do
   version=${VERSIONS[$name]}
   image=$registry/$name:$version
   if ((!test_only)) && docker manifest inspect "$image" >/dev/null 2>&1; then
