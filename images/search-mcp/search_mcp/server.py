@@ -22,6 +22,16 @@ from . import config, deepseek
 
 mcp = FastMCP("search-mcp")
 
+# Both tools only read: the catalog of Nabu shows «изменяет данные» for a tool without readOnlyHint, and the
+# read-only preset of a position would miss them (FTR.INFRA.MCPS-0003 R4). The web is open and changes, so
+# the answers are neither deterministic nor repeatable.
+READ_ONLY = {
+    "readOnlyHint": True,
+    "destructiveHint": False,
+    "idempotentHint": False,
+    "openWorldHint": True,
+}
+
 REQUESTS = Counter("search_requests_total", "Tool calls by operation and result", ["op", "result"])
 DURATION = Histogram("search_request_seconds", "Duration of a tool call, seconds", ["op"])
 TRUNCATED = Counter("search_content_truncated_total", "Answers whose content was cut by the limit")
@@ -58,7 +68,7 @@ def _run(op: str, call, *args) -> dict:
     return answer
 
 
-@mcp.tool
+@mcp.tool(annotations=READ_ONLY)
 def web_search(query: str, count: int = 10, need_content: bool = False) -> dict:
     """Search the web and return ranked results with a snippet and a long summary for the model.
 
@@ -70,7 +80,7 @@ def web_search(query: str, count: int = 10, need_content: bool = False) -> dict:
     return _run("search", deepseek.search, query, count, need_content)
 
 
-@mcp.tool
+@mcp.tool(annotations=READ_ONLY)
 def web_fetch(url: str) -> dict:
     """Read one public page as Markdown; an address of the company network cannot be read.
 

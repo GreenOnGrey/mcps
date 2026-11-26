@@ -199,6 +199,10 @@ def main() -> int:
     listed = body(rpc(headers, {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}, session))
     names = sorted(tool["name"] for tool in listed["result"]["tools"])
     expect(names == ["web_fetch", "web_search"], f"unexpected tools: {names}")
+    # The catalog of Nabu shows «изменяет данные» for a tool without readOnlyHint (SRCH-06).
+    for tool in listed["result"]["tools"]:
+        expect((tool.get("annotations") or {}).get("readOnlyHint") is True,
+               f"{tool['name']} is not marked read-only")
 
     # Search: the default count, no model, no key in the answer (SRCH-07, SRCH-09).
     answer = call(session, headers, "web_search", {"query": "kubernetes"})
