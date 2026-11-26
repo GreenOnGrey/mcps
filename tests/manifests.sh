@@ -121,10 +121,11 @@ mcp_chart() {
     fi
   done
   if docs_json "$OUT/mcp-search/mcp-servers.yaml" | jq -e 'select(.kind == "Deployment" and .metadata.name == "search")
-      | [.spec.template.spec.containers[0].env[] | select(.name == "SEARCH_KEY") | .valueFrom.secretKeyRef.name] == ["mcp-deepseek-key"]' >/dev/null; then
-    pass "STD-14 search: the key comes from mcp-deepseek-key"
+      | ([.spec.template.spec.containers[0].env[] | select(.name == "SEARCH_KEY") | .valueFrom.secretKeyRef.name] == ["mcp-search-key"])
+        and ([.spec.template.spec.containers[0].env[] | select(.name == "DEEPSEEK_KEY") | .valueFrom.secretKeyRef.name] == ["mcp-deepseek-key"])' >/dev/null; then
+    pass "STD-14 search: the platform key and the DeepSeek key come from different secrets"
   else
-    fail "STD-14 search: the key does not come from mcp-deepseek-key"
+    fail "STD-14 search: the two keys do not come from mcp-search-key and mcp-deepseek-key"
   fi
   # Web search: our own server over DeepSeek; SearXNG, its sidecar and the switch of private addresses are
   # gone (FTR.INFRA.MCPS-0003). The key comes from the Secret mcp-deepseek-key, the address from the values.

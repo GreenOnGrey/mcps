@@ -60,12 +60,12 @@ def _detail(body: dict) -> str:
 
 def _request(cfg: config.Config, path: str, body: dict) -> dict:
     """One call to the vendor with the retries of the chart; the key travels in the header only."""
-    if not cfg.key:
+    if not cfg.vendor_key:
         raise Refusal("the search is not configured: MCP_SEARCH_KEY is not set", "bad_request")
     if not config.url_allowed(cfg.url):
         raise Refusal("the search is not configured: MCP_SEARCH_URL must start with https://", "bad_request")
     url = cfg.url + path
-    headers = {"Authorization": f"Bearer {cfg.key}", "Content-Type": "application/json"}
+    headers = {"Authorization": f"Bearer {cfg.vendor_key}", "Content-Type": "application/json"}
     attempt = 0
     with httpx.Client(timeout=cfg.timeout) as client:
         while True:

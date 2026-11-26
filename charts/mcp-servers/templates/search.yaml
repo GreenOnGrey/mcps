@@ -30,7 +30,9 @@ spec:
           image: {{ .Values.search.image }}
           ports: [{ name: http, containerPort: 8000 }]
           env:
-            - { name: SEARCH_KEY, valueFrom: { secretKeyRef: { name: mcp-deepseek-key, key: key } } }
+            # the platform key authenticates the caller; the DeepSeek key goes to the vendor (FTR.INFRA.MCPS-0003 R2, R2a)
+            - { name: SEARCH_KEY, valueFrom: { secretKeyRef: { name: mcp-search-key, key: key } } }
+            - { name: DEEPSEEK_KEY, valueFrom: { secretKeyRef: { name: mcp-deepseek-key, key: key } } }
             - { name: SEARCH_URL, value: {{ .Values.search.url | quote }} }
             - { name: SEARCH_TIMEOUT_SECONDS, value: "30" }
             - { name: SEARCH_MAX_CONTENT_BYTES, value: "102400" }

@@ -1,7 +1,9 @@
 """Settings of the server (FTR.INFRA.MCPS-0003 tech §4).
 
-The key comes from the Secret mcp-deepseek-key, the address of the API is a value of the chart.
-The server starts without either: `/health` stays 200 and a tool names what is missing (R8).
+Two keys, two roles (R2, R2a): the platform key of Secret mcp-search-key authenticates the caller,
+the DeepSeek key of Secret mcp-deepseek-key pays the vendor and never leaves the cluster. The server
+starts without either: `/health` stays 200, `/mcp` answers 401 without the platform key, and a tool
+names the missing vendor key (R8).
 """
 
 from __future__ import annotations
@@ -19,7 +21,8 @@ LOOPBACK = ("127.0.0.1", "localhost", "[::1]", "::1")
 
 @dataclass(frozen=True)
 class Config:
-    key: str
+    platform_key: str
+    vendor_key: str
     url: str
     timeout: float
     max_content_bytes: int
@@ -30,7 +33,8 @@ class Config:
 def load() -> Config:
     """The settings of this call: the environment is read every time, so a test can replace it."""
     return Config(
-        key=os.environ.get("SEARCH_KEY", "").strip(),
+        platform_key=os.environ.get("SEARCH_KEY", "").strip(),
+        vendor_key=os.environ.get("DEEPSEEK_KEY", "").strip(),
         url=os.environ.get("SEARCH_URL", DEFAULT_URL).strip().rstrip("/") or DEFAULT_URL,
         timeout=float(os.environ.get("SEARCH_TIMEOUT_SECONDS", "30")),
         max_content_bytes=int(os.environ.get("SEARCH_MAX_CONTENT_BYTES", "102400")),
