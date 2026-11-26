@@ -1,9 +1,10 @@
 """The entry point of the web search MCP server of the stand (FTR.INFRA.MCPS-0003 tech §2).
 
 Two tools, both read-only: `web_search` finds pages through DeepSeek Search, `web_fetch` reads
-one public page as Markdown through DeepSeek Fetch. The platform key arrives from the Secret
-`mcp-deepseek-key`; a request without it never reaches a tool. `GET /health` and `GET /metrics`
-stay open, so the readiness of the pod does not depend on the vendor (R8).
+one public page as Markdown through DeepSeek Fetch. Two keys, two roles (R2, R2a): the platform key
+of Secret `mcp-search-key` authenticates the caller, the DeepSeek key of Secret `mcp-deepseek-key`
+goes to the vendor and never leaves the cluster. `GET /health` and `GET /metrics` stay open, so the
+readiness of the pod does not depend on the vendor (R8).
 """
 
 from __future__ import annotations
@@ -103,7 +104,7 @@ class AuthGate:
         if scope["type"] != "http" or scope.get("path") in self.OPEN:
             await self.app(scope, receive, send)
             return
-        key = config.load().key.encode()
+        key = config.load().platform_key.encode()
         headers = {k.decode("latin-1").lower(): v.decode("latin-1") for k, v in scope.get("headers", [])}
         scheme, _, token = headers.get("authorization", "").partition(" ")
         if not key or scheme.lower() != "bearer" or not hmac.compare_digest(token.strip().encode(), key):

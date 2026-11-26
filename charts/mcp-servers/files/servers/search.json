@@ -5,7 +5,9 @@
   "deployments": [
     "search"
   ],
-  "secrets": [],
+  "secrets": [
+    "mcp-search-key"
+  ],
   "configSecrets": [
     {
       "secret": "mcp-deepseek-key",
@@ -13,7 +15,7 @@
       "option": "MCP_SEARCH_KEY"
     }
   ],
-  "keySecret": "mcp-deepseek-key",
+  "keySecret": "mcp-search-key",
   "wantTools": [
     "web_search",
     "web_fetch"

@@ -18,7 +18,8 @@ import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 BASE = "http://127.0.0.1:8000"
-KEY = "platform-key"
+PLATFORM_KEY = "platform-key"
+VENDOR_KEY = "vendor-key"
 LIMIT = 1024
 
 STATE = {"calls": [], "flaky": 0}
@@ -115,7 +116,7 @@ def body(response) -> dict:
 
 
 def connect() -> tuple[str, dict]:
-    headers = {"Authorization": f"Bearer {KEY}"}
+    headers = {"Authorization": f"Bearer {PLATFORM_KEY}"}
     answer = rpc(headers, {"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {
         "protocolVersion": "2025-06-18", "capabilities": {}, "clientInfo": {"name": "t", "version": "1"}}})
     session = answer.headers.get("Mcp-Session-Id")
@@ -152,7 +153,7 @@ def main() -> int:
     assert os.getuid() != 0, "runs as root"
     httpd, port = vendor()
     STATE["port"] = port
-    os.environ.update({"SEARCH_KEY": KEY, "SEARCH_URL": f"http://127.0.0.1:{port}",
+    os.environ.update({"SEARCH_KEY": PLATFORM_KEY, "DEEPSEEK_KEY": VENDOR_KEY, "SEARCH_URL": f"http://127.0.0.1:{port}",
                        "SEARCH_MAX_CONTENT_BYTES": str(LIMIT), "SEARCH_RETRY_DELAY": "0",
                        "SEARCH_RETRIES": "2", "PORT": "8000", "HOST": "127.0.0.1"})
     sys.path.insert(0, os.getcwd())
@@ -166,12 +167,12 @@ def main() -> int:
 
     # A key that is missing is a refusal of the tool, not a crash (SRCH-16).
     try:
-        deepseek.search(config.Config("", "http://127.0.0.1:9", 1, LIMIT, 1, 0), "kubernetes", 10, False)
+        deepseek.search(config.Config(PLATFORM_KEY, "", "http://127.0.0.1:9", 1, LIMIT, 1, 0), "kubernetes", 10, False)
         expect(False, "a call without a key was not refused")
     except deepseek.Refusal as error:
         expect("MCP_SEARCH_KEY" in str(error), "the refusal does not name the key")
     try:
-        deepseek.fetch(config.Config("k", "http://evil.example", 1, LIMIT, 1, 0), "https://example.com")
+        deepseek.fetch(config.Config(PLATFORM_KEY, VENDOR_KEY, "http://evil.example", 1, LIMIT, 1, 0), "https://example.com")
         expect(False, "a plain http address of the vendor was accepted")
     except deepseek.Refusal as error:
         expect("https" in str(error), "the refusal does not name the scheme")
@@ -193,6 +194,7 @@ def main() -> int:
     expect(urllib.request.urlopen(BASE + "/health", timeout=10).status == 200, "/health did not answer")
     expect(urllib.request.urlopen(BASE + "/metrics", timeout=10).status == 200, "/metrics did not answer")
     expect(status({}) == 401, "expected 401 without a key")
+    expect(status({"Authorization": f"Bearer {VENDOR_KEY}"}) == 401, "the DeepSeek key was accepted as the platform key")
     expect(status({"Authorization": "Bearer wrong"}) == 401, "expected 401 for a wrong key")
 
     session, headers = connect()
@@ -213,7 +215,7 @@ def main() -> int:
     sent = last_call()
     expect(sent["body"].get("count") == 10, f"the default count is not 10: {sent['body']}")
     expect("model" not in sent["body"], "the request carries a model")
-    expect(sent["authorization"] == f"Bearer {KEY}", "the vendor did not receive the platform key")
+    expect(sent["authorization"] == f"Bearer {VENDOR_KEY}", "the vendor did not receive the DeepSeek key")
 
     # Arguments reach the vendor as they are (SRCH-07, SRCH-08).
     call(session, headers, "web_search", {"query": "kubernetes site:kubernetes.io", "count": 5, "need_content": True})
@@ -243,7 +245,7 @@ def main() -> int:
         answer = call(session, headers, "web_search", {"query": query})
         text = text_of(answer)
         expect(is_error(answer) and needle in text, f"refusal «{needle}»: {text}")
-        expect(KEY not in text and "Bearer" not in text, "the key leaked into the answer")
+        expect(VENDOR_KEY not in text and PLATFORM_KEY not in text and "Bearer" not in text, "a key leaked into the answer")
 
     # Retries: an exhausted limit gives up, a flaky vendor recovers (SRCH-10).
     before = len(STATE["calls"])

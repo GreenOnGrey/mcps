@@ -44,8 +44,9 @@ parsed once, then the agent reads it by anchors instead of loading the whole tex
 ### `search`
 
 Our own [search-mcp](images/search-mcp) over the [DeepSeek Search and Fetch APIs](https://api-docs.deepseek.com/guides/search):
-a paid key of the stand, results with a date, an authority score and a summary for the model, a page as Markdown,
-and public addresses only — the vendor cannot reach the company network.
+two keys with two roles — the platform key of the chart authenticates the caller, the paid DeepSeek key of the stand
+goes only to the vendor; results carry a date, an authority score and a summary for the model, a page comes back as
+Markdown, and only public addresses are read — the vendor cannot reach the company network.
 
 | Method | Arguments | What it does |
 | --- | --- | --- |
@@ -145,7 +146,7 @@ helm install mcp-servers oci://ghcr.io/greenongrey/charts/mcp-servers \
   --version <version> -n mcp --create-namespace --set docling.enabled=true
 ```
 
-The platform servers expect their access keys as Secrets in the chart namespace. `installer` creates them, so with plain Helm you create them yourself: their names are listed under `secrets` in `charts/mcp-servers/files/servers/<server>.json`. The web search is the exception: its `mcp-deepseek-key` comes from the operator (`MCP_SEARCH_KEY`), and the description names the parameter under `configSecrets` — create that Secret with the DeepSeek key before `helm install`.
+The platform servers expect their access keys as Secrets in the chart namespace. `installer` creates them, so with plain Helm you create them yourself: their names are listed under `secrets` in `charts/mcp-servers/files/servers/<server>.json`. The web search has two: `mcp-search-key` is its platform key (generated, pasted into the Nabu catalog), and `mcp-deepseek-key` is the DeepSeek key of the operator (`MCP_SEARCH_KEY`, named under `configSecrets`) — create both before `helm install`.
 
 The personal servers (`yandex-mail`, `jira`, `confluence`, `gitlab`, `clickhouse`, `greenplum`) have no key and no Secret: the token of the user comes in the header of every request from the proxy of Nabu, and the server keeps nothing. They do need the address of the company system, which is a setting of the stand — `jira.url`, `confluence.url`, `gitlab.url`, `clickhouse.host`, `greenplum.host` — and, for a system inside the company network, its network in `egressAllow`.
 

@@ -24,7 +24,7 @@ docling:
 # The key is not a value of the chart: installer puts MCP_SEARCH_KEY into the Secret mcp-deepseek-key.
 search:
   enabled: false
-  image: ghcr.io/greenongrey/search-mcp:0.1.1
+  image: ghcr.io/greenongrey/search-mcp:0.1.2
   # https:// only: a corporate mirror or proxy is allowed, plain http is not. The loopback http
   # exists for the test of the image alone.
   url: https://api.deepseek.com
